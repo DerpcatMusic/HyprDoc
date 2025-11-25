@@ -1,7 +1,8 @@
+
 import React from 'react';
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { Calendar as CalendarIcon } from 'lucide-react';
+import { Calendar as CalendarIcon, X, Check, ChevronDown } from 'lucide-react';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -70,7 +71,7 @@ export const Textarea = React.forwardRef<HTMLTextAreaElement, React.TextareaHTML
       return (
         <textarea
           className={cn(
-            "flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/50",
+            "flex min-h-[60px] w-full rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus:outline-none focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-700 dark:bg-zinc-900/50",
             className
           )}
           ref={ref}
@@ -123,6 +124,24 @@ export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDi
 ));
 Card.displayName = "Card";
 
+// --- Badge ---
+export const Badge = ({ children, className, variant = 'default' }: { children?: React.ReactNode, className?: string, variant?: 'default' | 'outline' | 'secondary' }) => {
+    const variants = {
+        default: "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+        secondary: "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+        outline: "text-foreground",
+    };
+    return (
+        <div className={cn(
+            "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2",
+            variants[variant],
+            className
+        )}>
+            {children}
+        </div>
+    );
+}
+
 // --- Switch ---
 export const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheckedChange: (c: boolean) => void }) => (
     <button
@@ -143,3 +162,168 @@ export const Switch = ({ checked, onCheckedChange }: { checked: boolean, onCheck
         />
     </button>
 );
+
+// --- Tabs ---
+export const Tabs = ({ children, defaultValue, className }: { children?: React.ReactNode, defaultValue: string, className?: string }) => {
+    const [activeTab, setActiveTab] = React.useState(defaultValue);
+    
+    return (
+        <div className={className} data-active-tab={activeTab}>
+            {React.Children.map(children, child => {
+                if (React.isValidElement(child)) {
+                    return React.cloneElement(child, { activeTab, setActiveTab } as any);
+                }
+                return child;
+            })}
+        </div>
+    )
+}
+
+export const TabsList = ({ children, activeTab, setActiveTab }: any) => (
+    <div className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground w-full justify-start dark:bg-zinc-800">
+        {React.Children.map(children, child => {
+             if (React.isValidElement(child)) {
+                return React.cloneElement(child, { activeTab, setActiveTab } as any);
+            }
+            return child;
+        })}
+    </div>
+)
+
+export const TabsTrigger = ({ value, children, activeTab, setActiveTab }: any) => (
+    <button
+        onClick={() => setActiveTab(value)}
+        className={cn(
+            "inline-flex items-center justify-center whitespace-nowrap rounded-sm px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50",
+            activeTab === value ? "bg-background text-foreground shadow-sm" : "hover:bg-background/50 hover:text-foreground"
+        )}
+    >
+        {children}
+    </button>
+)
+
+export const TabsContent = ({ value, children, activeTab }: any) => {
+    if (value !== activeTab) return null;
+    return <div className="mt-4 animate-in fade-in-50 duration-300">{children}</div>;
+}
+
+// --- Dialog/Modal ---
+export const Dialog = ({ open, onOpenChange, children, className }: { open: boolean, onOpenChange: (o: boolean) => void, children?: React.ReactNode, className?: string }) => {
+    if (!open) return null;
+    return (
+        <div className="fixed inset-0 z-50 bg-black/50 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200">
+            <div 
+                className={cn("bg-background w-full max-w-lg rounded-lg shadow-lg border dark:border-zinc-800 animate-in zoom-in-95 duration-200 relative", className)}
+                onClick={(e) => e.stopPropagation()}
+            >
+                {children}
+            </div>
+        </div>
+    )
+}
+
+export const DialogHeader = ({ children, className }: { children?: React.ReactNode, className?: string }) => (
+    <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left p-6 border-b dark:border-zinc-800", className)}>
+        {children}
+    </div>
+)
+
+export const DialogTitle = ({ children, className }: { children?: React.ReactNode, className?: string }) => (
+    <h3 className={cn("text-lg font-semibold leading-none tracking-tight", className)}>{children}</h3>
+)
+
+export const DialogContent = ({ children, className }: { children?: React.ReactNode, className?: string }) => (
+    <div className={cn("p-6", className)}>{children}</div>
+)
+
+export const DialogFooter = ({ children, className }: { children?: React.ReactNode, className?: string }) => (
+    <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 border-t dark:border-zinc-800 bg-muted/10", className)}>
+        {children}
+    </div>
+)
+
+// --- Sheet (Mobile Drawer) ---
+export const Sheet = ({ children, open, onOpenChange, side = 'right' }: { children: React.ReactNode, open: boolean, onOpenChange: (o: boolean) => void, side?: 'left' | 'right' }) => {
+    if (!open) return null;
+    
+    return (
+        <div className={cn("fixed inset-0 z-50 flex", side === 'right' ? 'justify-end' : 'justify-start')}>
+             <div className="fixed inset-0 bg-black/50 backdrop-blur-sm transition-opacity" onClick={() => onOpenChange(false)} />
+             <div className={cn(
+                 "relative z-50 w-[85%] max-w-sm bg-background p-0 shadow-xl transition-all duration-300 border-l dark:border-zinc-800 flex flex-col h-full",
+                 side === 'right' ? "animate-in slide-in-from-right" : "animate-in slide-in-from-left"
+             )}>
+                 <div className="p-4 border-b flex justify-between items-center bg-muted/5 dark:border-zinc-800">
+                    <span className="font-semibold text-sm">Menu</span>
+                    <button onClick={() => onOpenChange(false)} className="rounded-sm opacity-70 hover:opacity-100 p-1 hover:bg-muted">
+                        <X size={16} />
+                    </button>
+                 </div>
+                 <div className="flex-1 overflow-y-auto">
+                    {children}
+                 </div>
+             </div>
+        </div>
+    )
+}
+
+// --- Progress Bar ---
+export const ProgressBar = ({ value, max, className }: { value: number, max: number, className?: string }) => {
+    const percentage = max > 0 ? Math.min(100, Math.max(0, (value / max) * 100)) : 0;
+    return (
+        <div className={cn("h-1 w-full bg-secondary overflow-hidden rounded-full", className)}>
+            <div 
+                className="h-full bg-primary transition-all duration-300 ease-in-out" 
+                style={{ width: `${percentage}%` }} 
+            />
+        </div>
+    )
+}
+
+// --- Font Picker ---
+export const FontPicker = ({ value, onChange }: { value: string, onChange: (font: string) => void }) => {
+    const fonts = [
+        { name: 'Inter (Sans)', value: 'Inter, sans-serif' },
+        { name: 'JetBrains Mono', value: '"JetBrains Mono", monospace' },
+        { name: 'Serif (Classic)', value: 'serif' },
+        { name: 'Arial (Standard)', value: 'Arial, sans-serif' },
+        { name: 'Courier New', value: '"Courier New", monospace' },
+    ];
+
+    return (
+        <div className="relative">
+            <select
+                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring appearance-none dark:border-zinc-700 dark:bg-zinc-900/50"
+                value={value || 'Inter, sans-serif'}
+                onChange={(e) => onChange(e.target.value)}
+            >
+                {fonts.map(f => <option key={f.value} value={f.value}>{f.name}</option>)}
+            </select>
+            <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-muted-foreground">
+                <ChevronDown size={14} />
+            </div>
+        </div>
+    )
+}
+
+// --- Color Picker ---
+export const ColorPicker = ({ value, onChange }: { value: string, onChange: (color: string) => void }) => {
+    return (
+        <div className="flex gap-2">
+             <div className="relative w-10 h-9 rounded-md border overflow-hidden shadow-sm">
+                 <input 
+                    type="color" 
+                    value={value} 
+                    onChange={(e) => onChange(e.target.value)}
+                    className="absolute -top-1 -left-1 w-12 h-12 p-0 border-0 cursor-pointer"
+                 />
+             </div>
+             <Input 
+                value={value} 
+                onChange={(e) => onChange(e.target.value)}
+                placeholder="#000000"
+                className="font-mono"
+            />
+        </div>
+    )
+}

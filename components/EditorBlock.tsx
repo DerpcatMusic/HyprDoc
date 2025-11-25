@@ -1,24 +1,29 @@
+
 import React, { useRef, useEffect, useState } from 'react';
 import { BlockType, DocBlock, FormValues, Party } from '../types';
 import { 
     Trash2, GripVertical, Settings, List, 
     Type, Hash, Mail, Calendar, CheckSquare, 
     CircleDot, Image as ImageIcon, FileSignature, 
-    AlignLeft, Minus, MoreHorizontal, UserCircle, Plus
+    AlignLeft, Minus, MoreHorizontal, UserCircle, Plus,
+    UploadCloud, Code as CodeIcon, Braces, FileText,
+    Calculator, CreditCard, Video, DollarSign
 } from 'lucide-react';
 import { Button, Input, Label, cn, Textarea } from './ui-components';
+import { ConditionalZone } from './editor/ConditionalZone';
 
 interface EditorBlockProps {
   block: DocBlock;
   formValues: FormValues;
   isSelected: boolean;
   parties: Party[];
+  allBlocks?: DocBlock[]; 
   onSelect: (id: string) => void;
   onUpdate: (id: string, updates: Partial<DocBlock>) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
   onDrop: (e: React.DragEvent, id: string) => void;
-  onInsertAfter: (id: string, type: BlockType) => void; // New prop for slash commands
+  onInsertAfter: (id: string, type: BlockType) => void; 
   depth?: number;
 }
 
@@ -26,6 +31,7 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   block,
   isSelected,
   parties,
+  allBlocks = [],
   onSelect,
   onUpdate,
   onDelete,
@@ -39,7 +45,6 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   const [slashFilter, setSlashFilter] = useState('');
   const [menuIndex, setMenuIndex] = useState(0);
 
-  // Auto-resize textarea
   useEffect(() => {
     if (block.type === BlockType.TEXT && textareaRef.current) {
         textareaRef.current.style.height = "auto";
@@ -48,20 +53,25 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   }, [block.content, block.type]);
 
   const assignedParty = parties.find(p => p.id === block.assignedToPartyId);
+  const hasVariables = block.type === BlockType.TEXT && block.content && /{{[\w]+}}/g.test(block.content);
 
-  // Slash Command Menu Options
   const slashOptions = [
       { type: BlockType.TEXT, label: 'Text', icon: Type },
-      { type: BlockType.INPUT, label: 'Short Answer', icon: Type },
+      { type: BlockType.INPUT, label: 'Short Answer', icon: FileText },
       { type: BlockType.LONG_TEXT, label: 'Paragraph', icon: AlignLeft },
       { type: BlockType.SECTION_BREAK, label: 'Divider', icon: Minus },
       { type: BlockType.SELECT, label: 'Dropdown', icon: List },
       { type: BlockType.CHECKBOX, label: 'Checkbox', icon: CheckSquare },
       { type: BlockType.DATE, label: 'Date', icon: Calendar },
       { type: BlockType.SIGNATURE, label: 'Signature', icon: FileSignature },
+      { type: BlockType.FILE_UPLOAD, label: 'File Upload', icon: UploadCloud },
       { type: BlockType.REPEATER, label: 'Repeater Table', icon: List },
+      { type: BlockType.FORMULA, label: 'Formula', icon: Calculator },
+      { type: BlockType.PAYMENT, label: 'Payment', icon: CreditCard },
+      { type: BlockType.VIDEO, label: 'Video Embed', icon: Video },
+      { type: BlockType.HTML, label: 'HTML Code', icon: CodeIcon },
   ].filter(opt => opt.label.toLowerCase().includes(slashFilter.toLowerCase()));
-
+  
   const handleKeyDown = (e: React.KeyboardEvent) => {
       if (showSlashMenu) {
           if (e.key === 'ArrowDown') {
@@ -76,7 +86,6 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
                   onInsertAfter(block.id, slashOptions[menuIndex].type);
                   setShowSlashMenu(false);
                   setSlashFilter('');
-                  // Remove the slash command text from content
                   const content = block.content || '';
                   const slashIndex = content.lastIndexOf('/');
                   if (slashIndex !== -1) {
@@ -92,15 +101,12 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   const handleTextChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
       const val = e.target.value;
       onUpdate(block.id, { content: val });
-
-      // Detect Slash
       const lastChar = val.slice(-1);
       if (lastChar === '/') {
           setShowSlashMenu(true);
           setSlashFilter('');
           setMenuIndex(0);
       } else if (showSlashMenu) {
-          // If menu is open, capture text after slash
           const slashIndex = val.lastIndexOf('/');
           if (slashIndex === -1) {
               setShowSlashMenu(false);
@@ -111,9 +117,9 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   };
 
   const getIcon = () => {
-      switch(block.type) {
+       switch(block.type) {
           case BlockType.TEXT: return <Type size={14} />;
-          case BlockType.INPUT: return <Type size={14} className="border border-current rounded p-[1px]" />;
+          case BlockType.INPUT: return <FileText size={14} />;
           case BlockType.LONG_TEXT: return <AlignLeft size={14} />;
           case BlockType.NUMBER: return <Hash size={14} />;
           case BlockType.EMAIL: return <Mail size={14} />;
@@ -125,8 +131,35 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
           case BlockType.CONDITIONAL: return <Settings size={14} />;
           case BlockType.REPEATER: return <List size={14} />;
           case BlockType.SECTION_BREAK: return <Minus size={14} />;
+          case BlockType.FILE_UPLOAD: return <UploadCloud size={14} />;
+          case BlockType.HTML: return <CodeIcon size={14} />;
+          case BlockType.FORMULA: return <Calculator size={14} />;
+          case BlockType.PAYMENT: return <CreditCard size={14} />;
+          case BlockType.VIDEO: return <Video size={14} />;
+          case BlockType.CURRENCY: return <DollarSign size={14} />;
           default: return <Type size={14} />;
       }
+  }
+
+  // --- Render Conditional Zone specially ---
+  if (block.type === BlockType.CONDITIONAL) {
+      return (
+          <div className="mb-4">
+              <ConditionalZone 
+                  block={block} 
+                  allBlocks={allBlocks}
+                  formValues={{}} 
+                  isSelected={isSelected}
+                  onUpdate={onUpdate}
+                  onDelete={onDelete}
+                  onSelect={onSelect}
+                  onDrop={onDrop}
+                  parties={parties}
+                  onDragStart={onDragStart}
+                  onInsertAfter={onInsertAfter}
+              />
+          </div>
+      )
   }
 
   const renderContent = () => {
@@ -140,40 +173,38 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
                   "w-full bg-transparent border-none resize-none focus:ring-0 text-foreground p-0 text-sm leading-relaxed overflow-hidden",
                   !block.content && "text-muted-foreground italic"
               )}
-              placeholder='Type "/" to insert blocks...'
+              placeholder='Type "/" to insert blocks or "{{Var}}" for variables...'
               value={block.content || ''}
               onChange={handleTextChange}
               onKeyDown={handleKeyDown}
               onClick={() => onSelect(block.id)}
             />
+            {hasVariables && (
+                 <div className="absolute top-0 right-0">
+                     <div className="text-[9px] bg-blue-100 text-blue-700 px-1.5 py-0.5 rounded flex items-center gap-1 opacity-70 hover:opacity-100 transition-opacity cursor-help" title="Contains dynamic variable substitutions">
+                         <Braces size={10} /> Vars
+                     </div>
+                 </div>
+            )}
             {showSlashMenu && (
-                <div className="absolute top-full left-0 mt-1 w-56 bg-popover text-popover-foreground border shadow-lg rounded-md z-50 overflow-hidden">
+                <div className="absolute top-full left-0 mt-1 w-56 bg-popover text-popover-foreground border shadow-lg rounded-md z-[100] overflow-hidden">
                     <div className="p-1">
-                        {slashOptions.length === 0 ? (
-                             <div className="px-2 py-1.5 text-xs text-muted-foreground">No matches</div>
-                        ) : (
-                            slashOptions.map((opt, i) => (
-                                <button
-                                    key={opt.type}
-                                    className={cn(
-                                        "w-full text-left px-2 py-1.5 text-xs flex items-center gap-2 rounded-sm",
-                                        i === menuIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
-                                    )}
-                                    onClick={() => {
-                                        onInsertAfter(block.id, opt.type);
-                                        setShowSlashMenu(false);
-                                        const content = block.content || '';
-                                        const slashIndex = content.lastIndexOf('/');
-                                        if (slashIndex !== -1) {
-                                            onUpdate(block.id, { content: content.substring(0, slashIndex) });
-                                        }
-                                    }}
-                                >
-                                    <opt.icon size={12} />
-                                    {opt.label}
-                                </button>
-                            ))
-                        )}
+                        {slashOptions.map((opt, i) => (
+                            <button
+                                key={opt.type}
+                                className={cn(
+                                    "w-full text-left px-2 py-1.5 text-xs flex items-center gap-2 rounded-sm",
+                                    i === menuIndex ? "bg-accent text-accent-foreground" : "hover:bg-accent hover:text-accent-foreground"
+                                )}
+                                onClick={() => {
+                                    onInsertAfter(block.id, opt.type);
+                                    setShowSlashMenu(false);
+                                }}
+                            >
+                                <opt.icon size={12} />
+                                {opt.label}
+                            </button>
+                        ))}
                     </div>
                 </div>
             )}
@@ -188,17 +219,141 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
                 <div className="h-px bg-foreground/20 flex-1"></div>
             </div>
         );
+      
+      case BlockType.HTML:
+        return (
+            <div className="bg-zinc-900 text-zinc-100 p-3 rounded font-mono text-xs border border-zinc-700">
+                <div className="flex items-center gap-2 mb-2 opacity-50 border-b border-zinc-700 pb-2">
+                    <CodeIcon size={12} />
+                    <span>Raw HTML Embed</span>
+                </div>
+                <Textarea 
+                    value={block.content || ''}
+                    onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+                    className="bg-transparent border-none text-zinc-100 min-h-[80px]"
+                    placeholder="<div class='custom-widget'>...</div>"
+                />
+            </div>
+        )
 
-      case BlockType.INPUT:
-      case BlockType.LONG_TEXT:
-      case BlockType.NUMBER:
-      case BlockType.EMAIL:
-      case BlockType.DATE:
-      case BlockType.CHECKBOX:
-      case BlockType.RADIO:
-      case BlockType.IMAGE:
-      case BlockType.SIGNATURE:
-      case BlockType.SELECT:
+      case BlockType.FORMULA:
+         return (
+             <div className="flex flex-col gap-2">
+                 <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-bold uppercase tracking-wider text-purple-600 flex items-center gap-1.5 bg-purple-50 border border-purple-100 px-1.5 py-0.5 rounded select-none dark:bg-purple-900/30 dark:border-purple-800 dark:text-purple-300">
+                         <Calculator size={12} /> Formula
+                     </span>
+                     <input 
+                         type="text" 
+                         value={block.label || ''} 
+                         onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+                         placeholder="Result Label"
+                         className="flex-1 bg-transparent border-none text-sm font-semibold focus:ring-0 placeholder:text-muted-foreground/40 rounded px-1"
+                     />
+                 </div>
+                 <div className="font-mono text-xs bg-muted/50 p-2 rounded border flex items-center gap-2 text-muted-foreground">
+                     <span className="font-bold">=</span>
+                     {block.formula || <span className="italic opacity-50">Edit formula in sidebar...</span>}
+                 </div>
+             </div>
+         )
+      
+      case BlockType.PAYMENT:
+         return (
+             <div className="flex flex-col gap-2">
+                 <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 flex items-center gap-1.5 bg-emerald-50 border border-emerald-100 px-1.5 py-0.5 rounded select-none dark:bg-emerald-900/30 dark:border-emerald-800 dark:text-emerald-300">
+                         <CreditCard size={12} /> Payment
+                     </span>
+                     <span className="text-sm font-semibold">{block.label || 'Payment Request'}</span>
+                 </div>
+                 <div className="p-4 border rounded-lg bg-background flex flex-col gap-3 max-w-sm">
+                     <div className="h-8 bg-muted/20 rounded w-full animate-pulse"></div>
+                     <div className="flex gap-2">
+                         <div className="h-8 bg-muted/20 rounded w-1/2 animate-pulse"></div>
+                         <div className="h-8 bg-muted/20 rounded w-1/2 animate-pulse"></div>
+                     </div>
+                     <Button size="sm" className="w-full bg-emerald-600 hover:bg-emerald-700 text-white" disabled>
+                         Pay {block.paymentSettings?.amountType === 'fixed' ? `$${block.paymentSettings.amount}` : '(Dynamic)'}
+                     </Button>
+                 </div>
+             </div>
+         )
+         
+      case BlockType.VIDEO:
+          return (
+             <div className="flex flex-col gap-2">
+                 <div className="flex items-center gap-2">
+                     <span className="text-[10px] font-bold uppercase tracking-wider text-blue-600 flex items-center gap-1.5 bg-blue-50 border border-blue-100 px-1.5 py-0.5 rounded select-none dark:bg-blue-900/30 dark:border-blue-800 dark:text-blue-300">
+                         <Video size={12} /> Video
+                     </span>
+                     <input 
+                         type="text" 
+                         value={block.label || ''} 
+                         onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+                         placeholder="Video Title (Optional)"
+                         className="flex-1 bg-transparent border-none text-sm font-semibold focus:ring-0 placeholder:text-muted-foreground/40 rounded px-1"
+                     />
+                 </div>
+                 <div className="aspect-video bg-black/5 rounded-lg flex items-center justify-center border text-muted-foreground">
+                     {block.videoUrl ? (
+                         <div className="flex items-center gap-2"><Video size={24} /> Video Preview</div>
+                     ) : (
+                         <span className="text-xs">Add URL in sidebar</span>
+                     )}
+                 </div>
+             </div>
+          )
+
+      case BlockType.FILE_UPLOAD:
+        return (
+            <div className="flex flex-col gap-2">
+                 <div className="flex items-center gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground flex items-center gap-1.5 bg-muted/50 border px-1.5 py-0.5 rounded select-none">
+                        <UploadCloud size={12} /> File
+                    </span>
+                    <input 
+                        type="text" 
+                        value={block.label || ''} 
+                        onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+                        placeholder="File Upload Label"
+                        className="flex-1 bg-transparent border-none text-sm font-semibold focus:ring-0 placeholder:text-muted-foreground/40 rounded px-1"
+                    />
+                 </div>
+                 <div className="border-2 border-dashed rounded-md h-20 flex items-center justify-center bg-muted/10 text-muted-foreground text-xs">
+                     User will upload file here
+                 </div>
+            </div>
+        )
+
+      case BlockType.REPEATER:
+        return (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 dark:bg-indigo-900/10 dark:border-indigo-800 p-4">
+                <div className="flex items-center gap-2 mb-3 text-indigo-700 dark:text-indigo-400 text-sm font-medium">
+                    <List size={14} />
+                    <input 
+                      type="text" 
+                      value={block.label || ''} 
+                      onChange={(e) => onUpdate(block.id, { label: e.target.value })}
+                      placeholder="List Name"
+                      className="bg-transparent border-b border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 outline-none w-auto min-w-[150px] text-sm"
+                    />
+                    <span className="text-[10px] uppercase tracking-wide text-indigo-400 font-bold ml-auto">Dynamic Table</span>
+                </div>
+                 <div className="pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
+                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                        {block.repeaterFields?.map(f => (
+                            <div key={f.id} className="bg-white/50 dark:bg-zinc-800/50 border px-2 py-1.5 rounded text-xs text-muted-foreground font-medium shadow-sm flex items-center justify-between">
+                                <span>{f.label}</span>
+                            </div>
+                        ))}
+                     </div>
+                 </div>
+            </div>
+        )
+
+      default:
+        // Generic Input Render
         return (
           <div className="flex flex-col gap-2">
             <div className="flex items-center gap-2">
@@ -223,73 +378,8 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
                     <span className="font-mono text-xs bg-muted/50 dark:bg-zinc-800 px-1 rounded truncate max-w-[200px]">{(block.options || []).join(', ')}</span>
                  </div>
             )}
-            
-             <div className="flex gap-2 items-center pl-1 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
-                <span className="text-[10px] text-muted-foreground/60 font-mono select-none">ID:</span>
-                <input 
-                    type="text" 
-                    value={block.variableName || ''} 
-                    onChange={(e) => onUpdate(block.id, { variableName: e.target.value })}
-                    placeholder="variableName"
-                    className="flex-1 text-[10px] text-muted-foreground font-mono bg-transparent border-none p-0 focus:ring-0 h-auto"
-                />
-            </div>
           </div>
         );
-
-      case BlockType.CONDITIONAL:
-          return (
-              <div className="rounded-lg border border-dashed border-amber-300 bg-amber-50/40 dark:bg-amber-900/10 dark:border-amber-800 p-3">
-                  <div className="flex items-center gap-2 mb-2 text-amber-700 dark:text-amber-500 text-xs font-semibold uppercase tracking-wide">
-                    <Settings size={12} />
-                    <span>Logic Group</span>
-                  </div>
-                  <div className="text-sm text-amber-900 dark:text-amber-400 mb-2 px-1">
-                      Show when <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded border border-amber-200 dark:border-amber-800">{block.condition?.variableName || '...'}</code> equals <code className="bg-amber-100 dark:bg-amber-900/40 px-1 rounded border border-amber-200 dark:border-amber-800">"{block.condition?.equals || '...'}"</code>
-                  </div>
-                  <div className="pl-3 border-l-2 border-amber-200 dark:border-amber-800 ml-1">
-                     <div className="text-xs text-muted-foreground italic py-2 flex items-center gap-2">
-                         <MoreHorizontal size={14} />
-                         {block.children?.length ? `${block.children.length} nested blocks (See preview)` : 'Drag blocks here or toggle logic in panel'}
-                     </div>
-                  </div>
-              </div>
-          )
-      case BlockType.REPEATER:
-        return (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50/30 dark:bg-indigo-900/10 dark:border-indigo-800 p-4">
-                <div className="flex items-center gap-2 mb-3 text-indigo-700 dark:text-indigo-400 text-sm font-medium">
-                    <List size={14} />
-                    <input 
-                      type="text" 
-                      value={block.label || ''} 
-                      onChange={(e) => onUpdate(block.id, { label: e.target.value })}
-                      placeholder="List Name"
-                      className="bg-transparent border-b border-indigo-200 dark:border-indigo-800 focus:border-indigo-500 outline-none w-auto min-w-[150px] text-sm"
-                    />
-                    <span className="text-[10px] uppercase tracking-wide text-indigo-400 font-bold ml-auto">Dynamic Table</span>
-                </div>
-                 <div className="pl-4 border-l-2 border-indigo-200 dark:border-indigo-800">
-                     <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                        {block.repeaterFields && block.repeaterFields.length > 0 ? (
-                             block.repeaterFields.map(f => (
-                                <div key={f.id} className="bg-white/50 dark:bg-zinc-800/50 border px-2 py-1.5 rounded text-xs text-muted-foreground font-medium shadow-sm flex items-center justify-between">
-                                  <span>{f.label}</span>
-                                  <span className="text-[9px] opacity-50 uppercase bg-indigo-100 dark:bg-indigo-900/50 px-1 rounded">{f.type}</span>
-                                </div>
-                             ))
-                        ) : (
-                          <div className="text-xs text-muted-foreground italic">No columns defined</div>
-                        )}
-                        <div className="border border-dashed border-indigo-300 dark:border-indigo-700 rounded flex items-center justify-center p-1.5 opacity-50">
-                            <Plus size={12} className="text-indigo-500" />
-                        </div>
-                     </div>
-                 </div>
-            </div>
-        )
-      default:
-        return <div>Unknown Block</div>;
     }
   };
 
@@ -297,10 +387,11 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
     <div 
       draggable
       onDragStart={(e) => onDragStart(e, block.id)}
-      onDragOver={(e) => { e.preventDefault(); e.currentTarget.classList.add('ring-2', 'ring-primary/20'); }}
+      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('ring-2', 'ring-primary/20'); }}
       onDragLeave={(e) => { e.currentTarget.classList.remove('ring-2', 'ring-primary/20'); }}
       onDrop={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           e.currentTarget.classList.remove('ring-2', 'ring-primary/20');
           onDrop(e, block.id);
       }}

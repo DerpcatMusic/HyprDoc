@@ -40,16 +40,11 @@ export const parsePDFToModularDoc = async (file: File): Promise<DocBlock[]> => {
 
       // 1. Extract Text Content
       const textContent = await page.getTextContent();
-      // textContent.items contains objects with { str, transform }
-      // transform is [scaleX, skewY, skewX, scaleY, x, y]
-      // PDF coordinate system: Y grows upwards (usually). 
-      // We want to sort Top to Bottom. High Y -> Low Y.
-      
+      // transform[5] is the y-coordinate (baseline). PDF Y grows upwards.
       for (const item of textContent.items as any[]) {
         const text = item.str;
         if (!text || text.trim().length === 0) continue;
         
-        // transform[5] is the y-coordinate (baseline)
         elements.push({
           type: 'text',
           x: item.transform[4],
@@ -61,65 +56,98 @@ export const parsePDFToModularDoc = async (file: File): Promise<DocBlock[]> => {
       // 2. Extract Annotations (Form Fields)
       const annotations = await page.getAnnotations();
       
+      // PRE-PROCESS: Group annotations by fieldName to handle Radio Groups
+      const groupedAnnotations: Record<string, any[]> = {};
+      const standaloneAnnotations: any[] = [];
+
       for (const anno of annotations) {
-        if (anno.subtype === 'Widget') {
+          if (anno.subtype === 'Widget') {
+              if (anno.radioButton && anno.fieldName) {
+                  if (!groupedAnnotations[anno.fieldName]) {
+                      groupedAnnotations[anno.fieldName] = [];
+                  }
+                  groupedAnnotations[anno.fieldName].push(anno);
+              } else {
+                  standaloneAnnotations.push(anno);
+              }
+          }
+      }
+
+      // Handle Standalone Fields (Inputs, Checkboxes, Selects)
+      for (const anno of standaloneAnnotations) {
           // anno.rect is [x_bottom_left, y_bottom_left, x_top_right, y_top_right]
-          // or similar depending on rotation. 
-          // We'll use the "top" Y value for sorting: rect[3]
           const y = anno.rect[3]; 
           const x = anno.rect[0];
 
           let blockType = BlockType.INPUT;
           let options: string[] | undefined = undefined;
 
-          // Determine Field Type
           if (anno.checkBox) {
             blockType = BlockType.CHECKBOX;
-          } else if (anno.radioButton) {
-            blockType = BlockType.RADIO;
-            // Trying to find options for radios is complex in PDFJS without a full form manager, 
-            // but we can default or try to read appearance state.
-            options = ['Option 1', 'Option 2']; 
-          } else if (anno.fieldType === 'Ch') { // Choice (Dropdown)
+          } else if (anno.fieldType === 'Ch') { // Choice (Dropdown/Select)
              blockType = BlockType.SELECT;
-             options = anno.options || ['Option 1'];
+             options = anno.options || ['Option 1', 'Option 2'];
           } else if (anno.multiLine) {
              blockType = BlockType.LONG_TEXT;
+          } else if (anno.fieldType === 'Tx') {
+             blockType = BlockType.INPUT;
           }
 
           const fieldBlock: DocBlock = {
             id: crypto.randomUUID(),
             type: blockType,
             label: anno.fieldName || anno.alternativeText || 'Field',
-            variableName: (anno.fieldName || `field_${Date.now()}`).replace(/\s+/g, '_').toLowerCase(),
+            variableName: (anno.fieldName || `field_${Date.now()}_${Math.random().toString(36).substr(2, 5)}`).replace(/\s+/g, '_').toLowerCase(),
             options: options,
-            required: false // Hard to determine from basic annotation data
+            required: false 
           };
 
-          elements.push({
-            type: 'field',
-            x,
-            y,
-            block: fieldBlock
+          elements.push({ type: 'field', x, y, block: fieldBlock });
+      }
+
+      // Handle Grouped Radios
+      for (const fieldName in groupedAnnotations) {
+          const group = groupedAnnotations[fieldName];
+          if (group.length === 0) continue;
+
+          // Use the position of the first (top-most) radio button as the block position
+          // Sort group by Y descending to find top-most
+          group.sort((a, b) => b.rect[3] - a.rect[3]);
+          const topRadio = group[0];
+          
+          // Collect options from button values
+          const options = group.map(g => g.buttonValue || g.exportValue || 'Option').filter((v, i, a) => a.indexOf(v) === i); // Unique
+
+          const radioBlock: DocBlock = {
+              id: crypto.randomUUID(),
+              type: BlockType.RADIO,
+              label: fieldName || 'Select an option',
+              variableName: fieldName.replace(/\s+/g, '_').toLowerCase(),
+              options: options.length > 0 ? options : ['Option 1', 'Option 2'],
+              required: false
+          };
+
+          elements.push({ 
+              type: 'field', 
+              x: topRadio.rect[0], 
+              y: topRadio.rect[3], 
+              block: radioBlock 
           });
-        }
       }
 
       // 3. Sort Elements (Top to Bottom, Left to Right)
-      // PDF Y-coords: Higher is higher up the page. Sort Descending Y.
       elements.sort((a, b) => {
         const yDiff = b.y - a.y;
-        if (Math.abs(yDiff) > 5) return yDiff; // Significant vertical difference
-        return a.x - b.x; // Same line, sort left to right
+        if (Math.abs(yDiff) > 5) return yDiff; 
+        return a.x - b.x; 
       });
 
-      // 4. Group Text into Paragraphs/Lines
+      // 4. Group Text into Paragraphs
       let currentTextBlock: DocBlock | null = null;
       let lastY = -1;
 
       for (const el of elements) {
         if (el.type === 'field' && el.block) {
-          // Push any pending text block first
           if (currentTextBlock) {
              allBlocks.push(currentTextBlock);
              currentTextBlock = null;
@@ -127,9 +155,6 @@ export const parsePDFToModularDoc = async (file: File): Promise<DocBlock[]> => {
           allBlocks.push(el.block);
           lastY = el.y;
         } else if (el.type === 'text' && el.content) {
-          // Merge logic
-          // If we have a current block and this text is roughly on the same line or strictly following it
-          // Note: Simple heuristic for now.
           
           if (!currentTextBlock) {
              currentTextBlock = {
@@ -138,18 +163,11 @@ export const parsePDFToModularDoc = async (file: File): Promise<DocBlock[]> => {
                  content: el.content
              };
           } else {
-             // Check if it's a new line (significant Y drop)
              const yDiff = lastY - el.y; 
-             // If yDiff is large positive, we dropped down a line.
-             // If yDiff is near 0, same line.
-             
-             // If same line, append with space.
              if (Math.abs(yDiff) < 10) {
                  currentTextBlock.content += ' ' + el.content;
              } else {
-                 // New line in same block? Or new block?
-                 // Let's keep paragraphs together in one block unless gap is huge
-                 if (yDiff > 40) { // Big gap, start new block
+                 if (yDiff > 40) { 
                     allBlocks.push(currentTextBlock);
                     currentTextBlock = {
                         id: crypto.randomUUID(),
@@ -165,17 +183,15 @@ export const parsePDFToModularDoc = async (file: File): Promise<DocBlock[]> => {
         }
       }
 
-      // Push final text block of page
       if (currentTextBlock) {
         allBlocks.push(currentTextBlock);
       }
       
-      // Add a page break indicator if needed, or just let it flow
       if (pageNum < pdf.numPages) {
           allBlocks.push({
               id: crypto.randomUUID(),
               type: BlockType.SECTION_BREAK,
-              label: `Page ${pageNum} End`
+              label: `Page ${pageNum}`
           });
       }
     }
