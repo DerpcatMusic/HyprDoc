@@ -1,0 +1,5 @@
+{
+  "name": "HyprDoc",
+  "description": "A next-generation modular document builder with conditional logic, standard PDF parsing, and dynamic signing workflows.",
+  "requestFramePermissions": []
+}
