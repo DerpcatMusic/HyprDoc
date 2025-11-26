@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HyprDoc - Next Gen Builder</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
@@ -21,6 +21,7 @@
             fontFamily: {
               sans: ['Inter', 'sans-serif'],
               mono: ['JetBrains Mono', 'monospace'],
+              signature: ['Dancing Script', 'cursive'],
             },
             colors: {
               border: "hsl(var(--border))",
@@ -118,21 +119,10 @@
         -webkit-font-smoothing: antialiased;
       }
 
-      /* Custom Scrollbar */
-      ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-      }
-      ::-webkit-scrollbar-track {
-        background: transparent;
-      }
-      ::-webkit-scrollbar-thumb {
-        background: hsl(var(--border));
-        border-radius: 99px;
-      }
-      ::-webkit-scrollbar-thumb:hover {
-        background: hsl(var(--muted-foreground));
-      }
+      ::-webkit-scrollbar { width: 6px; height: 6px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border-radius: 99px; }
+      ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground)); }
     </style>
   <script type="importmap">
 {

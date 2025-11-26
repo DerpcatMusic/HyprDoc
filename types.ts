@@ -1,8 +1,8 @@
 
 export enum BlockType {
   TEXT = 'text',
-  INPUT = 'input', // Short Answer
-  LONG_TEXT = 'long_text', // Paragraph
+  INPUT = 'input', 
+  LONG_TEXT = 'long_text', 
   NUMBER = 'number',
   EMAIL = 'email',
   SELECT = 'select',
@@ -16,8 +16,6 @@ export enum BlockType {
   SECTION_BREAK = 'section_break',
   FILE_UPLOAD = 'file_upload',
   HTML = 'html',
-  
-  // Smart Blocks
   FORMULA = 'formula',
   PAYMENT = 'payment',
   VIDEO = 'video',
@@ -27,60 +25,77 @@ export enum BlockType {
 export interface Party {
   id: string;
   name: string;
-  color: string; // Hex code or Tailwind class reference
+  color: string; 
   initials: string;
   email?: string;
-  accessCode?: string; // For simulation of secure auth
+  accessCode?: string; 
 }
 
 export interface Variable {
     id: string;
-    key: string; // The placeholder key (e.g. "ClientName")
-    value: string; // The default value
-    label?: string; // Descriptive label
+    key: string; 
+    value: string; 
+    label?: string; 
+}
+
+export interface Term {
+    id: string;
+    term: string;
+    definition: string;
+    color?: string;
+    source: 'system' | 'user';
 }
 
 export interface DocBlock {
   id: string;
   type: BlockType;
-  content?: string; // Markdown text or Image URL
-  label?: string; // Label for inputs
-  variableName?: string; // Key for form state
-  options?: string[]; // For Select/Radio
+  content?: string; 
+  label?: string; 
+  variableName?: string; 
+  options?: string[]; 
   placeholder?: string;
   required?: boolean;
-  assignedToPartyId?: string; // ID of the party responsible for this block
+  assignedToPartyId?: string; 
   
-  // Conditional Logic
   condition?: {
     variableName: string;
     equals: string;
   };
-  children?: DocBlock[]; // Nested blocks
-
-  // Repeater Logic
+  children?: DocBlock[]; 
   repeaterFields?: DocBlock[]; 
   
-  // Smart Block Props
-  formula?: string; // e.g. "{{price}} * {{qty}}"
-  currency?: string; // 'USD', 'EUR'
+  formula?: string; 
+  currencySettings?: {
+      baseCurrency: string; 
+      targetCurrency: string; 
+      amount: number;
+  };
   paymentSettings?: {
       amountType: 'fixed' | 'variable';
-      amount?: number; // for fixed
-      variableName?: string; // for variable linked to a formula
+      amount?: number; 
+      variableName?: string; 
   };
   videoUrl?: string;
+}
+
+export interface PageMargins {
+    top: number;
+    bottom: number;
+    left: number;
+    right: number;
 }
 
 export interface DocumentSettings {
     brandColor?: string;
     logoUrl?: string;
     companyName?: string;
-    fontFamily?: string; // 'Inter', 'Serif', 'Mono', etc.
+    fontFamily?: string; 
     emailReminders?: boolean;
     reminderDays?: number;
     expirationDays?: number;
     webhookUrl?: string;
+    signingOrder?: 'parallel' | 'sequential';
+    margins?: PageMargins;
 }
 
 export interface AuditLogEntry {
@@ -106,13 +121,12 @@ export interface DocumentState {
   description?: string;
   blocks: DocBlock[];
   parties: Party[];
-  variables: Variable[]; // Global variables for smart substitution
+  variables: Variable[]; 
+  terms: Term[]; 
   settings?: DocumentSettings;
   updatedAt?: number;
   auditLog?: AuditLogEntry[];
-  
-  // Versioning
-  snapshot?: DocBlock[]; // The state of blocks when last sent (for diffing)
+  snapshot?: DocBlock[]; 
 }
 
 export interface Template {
