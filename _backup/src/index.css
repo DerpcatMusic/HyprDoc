@@ -1,0 +1,91 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* HYPR Industrial Theme - Light */
+  --background: 210 20% 98%; 
+  --foreground: 180 5% 5%; 
+  
+  --card: 0 0% 100%;
+  --card-foreground: 180 5% 5%;
+  
+  --popover: 0 0% 100%;
+  --popover-foreground: 180 5% 5%;
+  
+  --primary: 146 60% 35%; /* Industrial Green */
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 210 10% 90%;
+  --secondary-foreground: 0 0% 0%;
+  
+  --muted: 210 10% 94%;
+  --muted-foreground: 210 5% 40%;
+  
+  --accent: 146 60% 90%;
+  --accent-foreground: 146 60% 20%;
+  
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+  
+  --border: 0 0% 0%; /* Absolute Black Borders */
+  --input: 0 0% 0%;
+  --ring: 146 60% 35%;
+  
+  --radius: 0px; /* Brutalist */
+}
+
+.dark {
+  /* HYPR Industrial Theme - Dark */
+  --background: 240 5% 10%;
+  --foreground: 0 0% 98%;
+  
+  --card: 240 5% 15%;
+  --card-foreground: 0 0% 98%;
+  
+  --popover: 240 5% 15%;
+  --popover-foreground: 0 0% 98%;
+  
+  --primary: 146 50% 50%;
+  --primary-foreground: 0 0% 100%;
+  
+  --secondary: 240 5% 20%;
+  --secondary-foreground: 0 0% 98%;
+  
+  --muted: 240 5% 20%;
+  --muted-foreground: 240 5% 65%;
+  
+  --accent: 240 5% 20%;
+  --accent-foreground: 0 0% 98%;
+  
+  --destructive: 0 62.8% 30.6%;
+  --destructive-foreground: 0 0% 98%;
+  
+  --border: 0 0% 30%;
+  --input: 0 0% 30%;
+  --ring: 146 50% 50%;
+}
+
+body {
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Technical Scrollbar */
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-track { background: hsl(var(--muted)); border-left: 1px solid hsl(var(--border)); }
+::-webkit-scrollbar-thumb { background: hsl(var(--border)); border: 2px solid hsl(var(--muted)); }
+::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
+
+/* Grid Pattern */
+.bg-grid-pattern {
+  background-size: 20px 20px;
+  background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1.5px, transparent 1.5px);
+}
+.dark .bg-grid-pattern {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1.5px, transparent 1.5px);
+}
+
+/* Utilities */
+.text-xxs { font-size: 0.65rem; line-height: 1rem; }

@@ -1,4 +1,4 @@
-
+ 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BlockType, DocBlock, FormValues, Party, DocumentSettings, Variable, Term } from '../types';
 import { Plus, Trash, AlertCircle, RefreshCw, UploadCloud, X, CreditCard, Lock, Video, Eye, Eraser, ArrowRight, CheckCircle2, Navigation, ChevronRight, ChevronLeft, Flag, AlertTriangle, Phone, Image as ImageIcon, ArrowDown } from 'lucide-react';
@@ -51,9 +51,9 @@ const GlossaryTerm = ({ term, definition }: { term: string, definition: string }
             </span>
             {isOpen && (
                 <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs p-2 text-xs text-popover-foreground bg-popover border-2 border-black dark:border-white rounded-none shadow-hypr z-[1000] font-mono dark:bg-zinc-900 dark:text-white">
-                    <p className="font-bold mb-1 uppercase tracking-wider text-[10px] text-muted-foreground font-mono">Definition</p>
-                    <p className="font-semibold mb-1 text-sm">"{term}"</p>
-                    <p className="text-xs leading-relaxed">{definition}</p>
+                    <span className="font-bold mb-1 uppercase tracking-wider text-[10px] text-muted-foreground font-mono block">Definition</span>
+                    <span className="font-semibold mb-1 text-sm block">"{term}"</span>
+                    <span className="text-xs leading-relaxed block">{definition}</span>
                     <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black dark:border-t-white"></div>
                 </div>
             )}
@@ -101,10 +101,12 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                             const lowerPart = part.toLowerCase();
                             if (glossaryMap.has(lowerPart)) {
                                 return (
-                                    <GlossaryTerm key={i} term={part} definition={glossaryMap.get(lowerPart)!} />
+                                    <span key={`glossary-${i}`}>
+                                        <GlossaryTerm term={part} definition={glossaryMap.get(lowerPart)!} />
+                                    </span>
                                 );
                             }
-                            return part;
+                            return <span key={`text-${i}`}>{part}</span>;
                         })}
                      </p>
                  );
@@ -321,7 +323,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                                      />
                                      <Label className="font-normal cursor-pointer" onClick={() => {
                                          if(isLocked) return;
-                                          // Toggle logic duplicatd for label click convenience
+                                          // Toggle logic duplicated for label click convenience
                                           let currentVals = (formValues[block.id] || []) as string[];
                                            if (block.allowMultiple === false) {
                                                 handleInputChange(block.id, !currentVals.includes(opt) ? [opt] : []);
@@ -421,7 +423,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
   // Render a visually distinct "Page" container similar to EditorCanvas
   return (
     <div className="max-w-5xl mx-auto p-8 pb-32 relative min-h-screen bg-muted/10 bg-grid-pattern pt-24"> {/* Added pt-24 to prevent overlap with fixed nav */}
-        
+         
         {/* Simulator Controls (Overlay) - Fixed Position to prevent overlap */}
         {isPreview && (
             <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none w-full max-w-[850px] px-4">
