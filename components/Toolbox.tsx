@@ -5,7 +5,7 @@ import {
     Type, AlignLeft, Minus, Image as ImageIcon, Code as CodeIcon,
     Settings, List, CheckSquare, Calendar, FileSignature, 
     Hash, Mail, CircleDot, UploadCloud, GripVertical, FileText,
-    Calculator, CreditCard, Video, DollarSign
+    Calculator, CreditCard, Video, DollarSign, Columns
 } from 'lucide-react';
 import { cn } from './ui-components';
 
@@ -14,106 +14,109 @@ interface ToolboxProps {
     onAddBlock: (type: BlockType) => void;
 }
 
-const ToolItem = ({ type, icon: Icon, label, onDragStart, onClick }: { type: BlockType, icon: any, label: string, onDragStart: any, onClick: any }) => (
+// Colors for categories - enhanced for dark mode
+const CATEGORY_COLORS = {
+    primitive: "bg-zinc-100 border-zinc-300 hover:bg-zinc-200 dark:bg-zinc-900 dark:border-zinc-700 dark:hover:bg-zinc-800",
+    input: "bg-blue-50 border-blue-200 hover:bg-blue-100 dark:bg-blue-900/20 dark:border-blue-800 dark:hover:bg-blue-900/40",
+    smart: "bg-purple-50 border-purple-200 hover:bg-purple-100 dark:bg-purple-900/20 dark:border-purple-800 dark:hover:bg-purple-900/40",
+    media: "bg-amber-50 border-amber-200 hover:bg-amber-100 dark:bg-amber-900/20 dark:border-amber-800 dark:hover:bg-amber-900/40",
+    logic: "bg-rose-50 border-rose-200 hover:bg-rose-100 dark:bg-rose-900/20 dark:border-rose-800 dark:hover:bg-rose-900/40",
+    layout: "bg-indigo-50 border-indigo-200 hover:bg-indigo-100 dark:bg-indigo-900/20 dark:border-indigo-800 dark:hover:bg-indigo-900/40"
+};
+
+const ToolItem = ({ type, icon: Icon, label, onDragStart, onClick, colorClass }: { type: BlockType, icon: any, label: string, onDragStart: any, onClick: any, colorClass: string }) => (
     <div 
       draggable
       onDragStart={(e) => onDragStart(e, type)}
       onClick={() => onClick(type)}
-      className="flex flex-col items-center justify-center p-3 h-20 bg-background border rounded-lg hover:border-primary hover:shadow-sm cursor-grab active:cursor-grabbing transition-all group dark:border-zinc-800 dark:hover:border-primary"
+      className={cn(
+          "flex items-center gap-3 p-2.5 border-2 cursor-grab active:cursor-grabbing transition-all group relative overflow-hidden hover:-translate-y-[2px] hover:shadow-[2px_2px_0px_0px_rgba(0,0,0,1)] dark:hover:shadow-[2px_2px_0px_0px_rgba(255,255,255,0.2)]",
+          colorClass,
+          "border-black dark:border-zinc-600" 
+      )}
     >
-        <Icon className="w-5 h-5 mb-2 text-muted-foreground group-hover:text-primary transition-colors" />
-        <span className="text-[10px] font-medium text-foreground text-center leading-tight">{label}</span>
+        <Icon className="w-4 h-4 text-black dark:text-zinc-100 transition-none relative z-10 opacity-70 group-hover:opacity-100" />
+        <span className="text-[11px] font-bold font-mono uppercase tracking-wider leading-none relative z-10 text-black dark:text-zinc-100">{label}</span>
+    </div>
+);
+
+const SectionHeader = ({ title, number }: { title: string, number: string }) => (
+    <div className="mb-3 w-full flex justify-between items-center mt-2 border-b-2 border-black dark:border-zinc-700 pb-2">
+        <span className="text-[10px] font-black font-mono uppercase tracking-widest text-foreground dark:text-white">
+            {title}
+        </span>
+        <span className="text-[9px] font-mono font-bold opacity-50 border-2 border-black dark:border-zinc-600 px-1.5 bg-white dark:bg-zinc-800 text-black dark:text-white">
+            {number}
+        </span>
     </div>
 );
 
 export const Toolbox: React.FC<ToolboxProps> = ({ onDragStart, onAddBlock }) => {
     return (
-        <div className="flex-1 overflow-y-auto p-5 space-y-8">
+        <div className="flex-1 overflow-y-auto p-5 space-y-8 bg-white dark:bg-zinc-950">
             {/* ESSENTIALS */}
             <div>
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 pl-1 flex items-center gap-2">
-                    Essentials
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                    <ToolItem type={BlockType.TEXT} icon={Type} label="Text Content" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.INPUT} icon={FileText} label="Short Answer" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.LONG_TEXT} icon={AlignLeft} label="Paragraph" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.SECTION_BREAK} icon={Minus} label="Divider" onDragStart={onDragStart} onClick={onAddBlock} />
-                </div>
-            </div>
-
-            {/* SMART BLOCKS */}
-            <div>
-                <h3 className="text-[10px] font-bold text-purple-500 uppercase tracking-wider mb-3 pl-1 flex items-center gap-2">
-                   Smart Blocks
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                     <ToolItem type={BlockType.FORMULA} icon={Calculator} label="Math Formula" onDragStart={onDragStart} onClick={onAddBlock} />
-                     <ToolItem type={BlockType.PAYMENT} icon={CreditCard} label="Payment" onDragStart={onDragStart} onClick={onAddBlock} />
-                     <ToolItem type={BlockType.VIDEO} icon={Video} label="Embed Video" onDragStart={onDragStart} onClick={onAddBlock} />
-                     <ToolItem type={BlockType.CURRENCY} icon={DollarSign} label="Live Currency" onDragStart={onDragStart} onClick={onAddBlock} />
+                <SectionHeader title="Primitives" number="01" />
+                <div className="grid grid-cols-1 gap-2">
+                    <ToolItem type={BlockType.TEXT} icon={Type} label="Text Block" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.primitive} />
+                    <ToolItem type={BlockType.INPUT} icon={FileText} label="Short Answer" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.primitive} />
+                    <ToolItem type={BlockType.LONG_TEXT} icon={AlignLeft} label="Paragraph" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.primitive} />
                 </div>
             </div>
 
             {/* DATA COLLECTION */}
             <div>
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 pl-1 flex items-center gap-2">
-                   Data Inputs
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                    <ToolItem type={BlockType.CHECKBOX} icon={CheckSquare} label="Checkbox" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.RADIO} icon={CircleDot} label="Radio Group" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.SELECT} icon={List} label="Dropdown" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.DATE} icon={Calendar} label="Date Picker" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.EMAIL} icon={Mail} label="Email" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.NUMBER} icon={Hash} label="Number" onDragStart={onDragStart} onClick={onAddBlock} />
+                <SectionHeader title="Inputs" number="02" />
+                <div className="grid grid-cols-1 gap-2">
+                    <div className="grid grid-cols-2 gap-2">
+                        <ToolItem type={BlockType.CHECKBOX} icon={CheckSquare} label="Check" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.input} />
+                        <ToolItem type={BlockType.RADIO} icon={CircleDot} label="Radio" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.input} />
+                    </div>
+                    <ToolItem type={BlockType.SELECT} icon={List} label="Dropdown Select" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.input} />
+                    <ToolItem type={BlockType.DATE} icon={Calendar} label="Date Picker" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.input} />
+                    <ToolItem type={BlockType.EMAIL} icon={Mail} label="Email Address" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.input} />
+                    <ToolItem type={BlockType.NUMBER} icon={Hash} label="Number Input" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.input} />
+                </div>
+            </div>
+
+            {/* SMART BLOCKS */}
+            <div>
+                <SectionHeader title="Smart Mods" number="03" />
+                <div className="grid grid-cols-1 gap-2">
+                     <ToolItem type={BlockType.FORMULA} icon={Calculator} label="Calc / Formula" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.smart} />
+                     <ToolItem type={BlockType.PAYMENT} icon={CreditCard} label="Payment Gateway" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.smart} />
+                     <ToolItem type={BlockType.CURRENCY} icon={DollarSign} label="Currency Convert" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.smart} />
                 </div>
             </div>
 
              {/* MEDIA & FILES */}
              <div>
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 pl-1 flex items-center gap-2">
-                   Media
-                </h3>
-                <div className="grid grid-cols-2 gap-2">
-                     <ToolItem type={BlockType.SIGNATURE} icon={FileSignature} label="Signature" onDragStart={onDragStart} onClick={onAddBlock} />
-                     <ToolItem type={BlockType.FILE_UPLOAD} icon={UploadCloud} label="File Upload" onDragStart={onDragStart} onClick={onAddBlock} />
-                     <ToolItem type={BlockType.IMAGE} icon={ImageIcon} label="Image Embed" onDragStart={onDragStart} onClick={onAddBlock} />
-                     <ToolItem type={BlockType.HTML} icon={CodeIcon} label="HTML / Embed" onDragStart={onDragStart} onClick={onAddBlock} />
+                <SectionHeader title="Assets" number="04" />
+                <div className="grid grid-cols-1 gap-2">
+                     <ToolItem type={BlockType.SIGNATURE} icon={FileSignature} label="E-Signature" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.media} />
+                     <ToolItem type={BlockType.FILE_UPLOAD} icon={UploadCloud} label="File Upload" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.media} />
+                     <div className="grid grid-cols-2 gap-2">
+                        <ToolItem type={BlockType.IMAGE} icon={ImageIcon} label="Img" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.media} />
+                        <ToolItem type={BlockType.VIDEO} icon={Video} label="Vid" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.media} />
+                     </div>
+                     <ToolItem type={BlockType.SECTION_BREAK} icon={Minus} label="Divider Line" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.media} />
+                </div>
+            </div>
+
+            {/* LAYOUT */}
+            <div>
+                <SectionHeader title="Layout" number="05" />
+                <div className="space-y-2">
+                    <ToolItem type={BlockType.COLUMNS} icon={Columns} label="2 Columns" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.layout} />
                 </div>
             </div>
 
             {/* ADVANCED */}
             <div>
-                <h3 className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider mb-3 pl-1 flex items-center gap-2">
-                   Advanced Logic
-                </h3>
+                 <SectionHeader title="Logic" number="06" />
                 <div className="space-y-2">
-                    <div 
-                        draggable 
-                        onDragStart={(e) => onDragStart(e, BlockType.CONDITIONAL)}
-                        onClick={() => onAddBlock(BlockType.CONDITIONAL)}
-                        className="bg-amber-50 border border-amber-200 p-3 rounded-lg flex items-center gap-3 cursor-grab hover:shadow-md transition-all group dark:bg-amber-900/20 dark:border-amber-800"
-                    >
-                        <Settings className="text-amber-600" size={18} />
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-amber-900 dark:text-amber-500">Conditional Branch</span>
-                            <span className="text-[9px] text-amber-700/70">Show blocks based on rules</span>
-                        </div>
-                    </div>
-
-                    <div 
-                        draggable 
-                        onDragStart={(e) => onDragStart(e, BlockType.REPEATER)}
-                        onClick={() => onAddBlock(BlockType.REPEATER)}
-                        className="bg-indigo-50 border border-indigo-200 p-3 rounded-lg flex items-center gap-3 cursor-grab hover:shadow-md transition-all group dark:bg-indigo-900/20 dark:border-indigo-800"
-                    >
-                        <List className="text-indigo-600" size={18} />
-                        <div className="flex flex-col">
-                            <span className="text-xs font-bold text-indigo-900 dark:text-indigo-500">Repeater Group</span>
-                            <span className="text-[9px] text-indigo-700/70">Dynamic lists & line items</span>
-                        </div>
-                    </div>
+                    <ToolItem type={BlockType.CONDITIONAL} icon={Settings} label="Conditional Branch" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.logic} />
+                    <ToolItem type={BlockType.REPEATER} icon={List} label="Repeater Group" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.logic} />
                 </div>
             </div>
         </div>

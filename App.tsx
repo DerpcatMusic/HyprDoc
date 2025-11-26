@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { DocumentProvider, useDocument } from './context/DocumentContext';
 import { Viewer } from './components/Viewer';
@@ -10,7 +11,7 @@ import { EditorCanvas } from './components/EditorCanvas';
 import { GlossaryManager } from './components/GlossaryManager';
 import { 
     FileText, Settings, LayoutTemplate, ArrowLeft, Share, 
-    Moon, Sun, Book
+    Moon, Sun, Book, Package
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from './components/ui-components';
 
@@ -56,12 +57,12 @@ const AppContent: React.FC = () => {
 
     if (mode === 'preview') {
         return (
-            <div className="min-h-screen bg-muted/30 dark:bg-zinc-950 transition-colors">
-                <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b px-6 py-4 flex justify-between items-center shadow-sm dark:border-zinc-800">
-                    <Button variant="ghost" onClick={() => setMode('edit')} className="gap-2"><ArrowLeft size={16} /> Back to Editor</Button>
+            <div className="min-h-screen bg-background transition-colors font-sans">
+                <div className="sticky top-0 z-50 bg-background/80 backdrop-blur-md border-b-2 border-black px-6 py-4 flex justify-between items-center shadow-none dark:border-zinc-700">
+                    <Button variant="ghost" onClick={() => setMode('edit')} className="gap-2 font-mono hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black dark:text-white"><ArrowLeft size={16} /> BACK TO EDITOR</Button>
                     <div className="flex gap-2">
-                        <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)}>{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</Button>
-                        <Button onClick={() => setMode('recipient')} className="bg-purple-600 hover:bg-purple-700 text-white gap-2"><Share size={16}/> Simulate Secure Link</Button>
+                        <Button variant="ghost" size="icon" onClick={() => setIsDarkMode(!isDarkMode)} className="hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black dark:text-white">{isDarkMode ? <Sun size={18} /> : <Moon size={18} />}</Button>
+                        <Button onClick={() => setMode('recipient')} className="bg-primary hover:bg-primary/90 text-white gap-2 font-mono border-2 border-black shadow-hypr-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] transition-all dark:border-zinc-700"><Share size={16}/> SHARE LINK</Button>
                     </div>
                 </div>
                 <Viewer blocks={doc.blocks} settings={doc.settings} parties={doc.parties} variables={doc.variables} terms={doc.terms} isPreview={true} />
@@ -72,24 +73,24 @@ const AppContent: React.FC = () => {
     return (
         <div className="flex h-screen w-screen bg-background text-foreground font-sans overflow-hidden">
             {/* Navigation Sidebar */}
-            <div className="hidden md:flex w-16 md:w-20 border-r bg-muted/5 flex-col items-center py-6 gap-6 dark:border-zinc-800 z-30">
-                <div className="w-10 h-10 bg-primary rounded-xl flex items-center justify-center text-primary-foreground shadow-lg shadow-primary/30">
-                    <LayoutTemplate size={20} />
+            <div className="hidden md:flex w-16 md:w-20 border-r-2 border-black bg-white dark:bg-zinc-950 dark:border-zinc-800 flex-col items-center py-6 gap-6 z-30 shadow-md">
+                <div className="w-10 h-10 bg-primary flex items-center justify-center text-white shadow-hypr-sm border-2 border-black dark:border-zinc-700 font-bold text-xl">
+                    H
                 </div>
-                <div className="flex-1 flex flex-col gap-4 w-full px-2">
-                    <Button variant={mode === 'dashboard' ? 'secondary' : 'ghost'} size="icon" className="w-full h-10 rounded-lg" onClick={() => setMode('dashboard')} title="Dashboard"><LayoutTemplate size={20} /></Button>
-                    <Button variant={mode === 'edit' ? 'secondary' : 'ghost'} size="icon" className="w-full h-10 rounded-lg" onClick={() => setMode('edit')} title="Editor"><FileText size={20} /></Button>
-                    <Button variant={mode === 'settings' ? 'secondary' : 'ghost'} size="icon" className="w-full h-10 rounded-lg" onClick={() => setMode('settings')} title="Settings"><Settings size={20} /></Button>
+                <div className="flex-1 flex flex-col gap-4 w-full px-2 items-center">
+                    <Button variant={mode === 'dashboard' ? 'secondary' : 'ghost'} size="icon" className="w-10 h-10 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors rounded-none border-2 border-transparent hover:border-black dark:hover:border-white dark:text-zinc-400" onClick={() => setMode('dashboard')} title="Dashboard"><LayoutTemplate size={20} /></Button>
+                    <Button variant={mode === 'edit' ? 'secondary' : 'ghost'} size="icon" className="w-10 h-10 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors rounded-none border-2 border-transparent hover:border-black dark:hover:border-white dark:text-zinc-400" onClick={() => setMode('edit')} title="Editor"><Package size={20} /></Button>
+                    <Button variant={mode === 'settings' ? 'secondary' : 'ghost'} size="icon" className="w-10 h-10 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors rounded-none border-2 border-transparent hover:border-black dark:hover:border-white dark:text-zinc-400" onClick={() => setMode('settings')} title="Settings"><Settings size={20} /></Button>
                 </div>
-                <div className="flex flex-col gap-4 w-full px-2">
-                    <Button variant={showGlossary ? 'secondary' : 'ghost'} size="icon" className="w-full h-10" onClick={() => setShowGlossary(!showGlossary)} title="Glossary"><Book size={20} /></Button>
-                    <Button variant="ghost" size="icon" className="w-full h-10" onClick={() => setIsDarkMode(!isDarkMode)}>{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</Button>
+                <div className="flex flex-col gap-4 w-full px-2 items-center">
+                    <Button variant={showGlossary ? 'secondary' : 'ghost'} size="icon" className="w-10 h-10 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors rounded-none border-2 border-transparent hover:border-black dark:hover:border-white dark:text-zinc-400" onClick={() => setShowGlossary(!showGlossary)} title="Glossary"><Book size={20} /></Button>
+                    <Button variant="ghost" size="icon" className="w-10 h-10 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors rounded-none border-2 border-transparent hover:border-black dark:hover:border-white dark:text-zinc-400" onClick={() => setIsDarkMode(!isDarkMode)}>{isDarkMode ? <Sun size={20} /> : <Moon size={20} />}</Button>
                 </div>
             </div>
 
             {/* Glossary Sidebar */}
             {showGlossary && (
-                <div className="w-80 border-r bg-background z-20 animate-in slide-in-from-left duration-300">
+                <div className="w-80 border-r-2 border-black bg-background z-20 animate-in slide-in-from-left duration-300 shadow-hypr dark:border-zinc-800">
                     <GlossaryManager 
                         terms={doc.terms} 
                         onAddTerm={(t) => setDoc(p => ({...p, terms: [...p.terms, t]}))} 
@@ -121,8 +122,11 @@ const AppContent: React.FC = () => {
             {mode === 'edit' && (
             <>
             {/* TOOLBOX */}
-            <div className="hidden md:flex w-72 border-r bg-muted/10 flex-col z-20 dark:border-zinc-800">
-                <div className="p-5 border-b bg-background h-16 flex items-center font-semibold text-sm dark:border-zinc-800">Toolbox</div>
+            <div className="hidden md:flex w-72 border-r-2 border-black dark:border-zinc-800 bg-background flex-col z-20 shadow-sm">
+                <div className="p-5 border-b-2 border-black dark:border-zinc-800 h-16 flex items-center justify-between bg-muted/20">
+                    <span className="font-black font-mono text-sm tracking-widest uppercase">Components</span>
+                    <span className="text-xs font-mono opacity-50">LIB_V2</span>
+                </div>
                 <Toolbox onDragStart={handleDragStartToolbox} onAddBlock={addBlock} />
             </div>
 
@@ -163,18 +167,21 @@ const AppContent: React.FC = () => {
             
             {/* SEND MODAL */}
             <Dialog open={showSendModal} onOpenChange={setShowSendModal}>
-                <DialogContent>
-                    <DialogHeader><DialogTitle>Secure Send</DialogTitle></DialogHeader>
-                    <div className="p-4 bg-muted/30 rounded border text-sm text-center">
-                        <p className="font-mono text-xs mb-2 bg-background p-2 rounded select-all">https://hyprdoc.com/s/{doc.id || 'draft-id'}</p>
-                        <p className="text-muted-foreground text-xs">Anyone with this link will need to verify their email.</p>
+                <DialogContent className="border-2 border-black shadow-hypr bg-white dark:bg-zinc-900 dark:border-zinc-700 dark:text-white">
+                    <DialogHeader><DialogTitle className="font-mono uppercase text-xl font-black">Secure Transmission</DialogTitle></DialogHeader>
+                    <div className="p-6 bg-muted/10 border-2 border-dashed border-black/20 dark:border-zinc-700 text-sm text-center">
+                        <p className="font-mono text-xs mb-4 bg-white dark:bg-black border-2 border-black dark:border-zinc-700 p-3 select-all shadow-sm flex justify-between items-center">
+                            <span className="truncate mr-2">https://hyprdoc.com/s/{doc.id || 'draft-id'}</span>
+                            <span className="text-[10px] bg-primary px-1 text-white font-bold cursor-pointer hover:bg-primary/80">COPY</span>
+                        </p>
+                        <p className="text-muted-foreground text-xs font-mono uppercase tracking-wide">Recipient will require email verification</p>
                     </div>
                     <DialogFooter>
                         <Button onClick={() => { 
                             setDoc(prev => ({ ...prev, status: 'sent', snapshot: prev.blocks })); 
                             setShowSendModal(false); 
                             addAuditLog('sent', 'Document snapshot created');
-                        }}>Create Link & Snapshot</Button>
+                        }} className="font-mono bg-black text-white hover:bg-primary hover:text-white border-2 border-black shadow-hypr-sm active:shadow-none active:translate-x-[2px] active:translate-y-[2px] dark:bg-white dark:text-black dark:hover:bg-primary dark:border-zinc-700">GENERATE LINK & SNAPSHOT</Button>
                     </DialogFooter>
                 </DialogContent>
             </Dialog>

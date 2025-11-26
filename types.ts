@@ -19,16 +19,18 @@ export enum BlockType {
   FORMULA = 'formula',
   PAYMENT = 'payment',
   VIDEO = 'video',
-  CURRENCY = 'currency'
+  CURRENCY = 'currency',
+  COLUMNS = 'columns',
+  COLUMN = 'column'
 }
 
 export interface Party {
   id: string;
-  name: string;
+  name: string; // Role name e.g., "Client", "HR Manager"
   color: string; 
   initials: string;
   email?: string;
-  accessCode?: string; 
+  accessCode?: string; // For security
 }
 
 export interface Variable {
@@ -56,6 +58,7 @@ export interface DocBlock {
   placeholder?: string;
   required?: boolean;
   assignedToPartyId?: string; 
+  allowMultiple?: boolean; // For Checkbox groups
   
   condition?: {
     variableName: string;
@@ -66,9 +69,11 @@ export interface DocBlock {
   
   formula?: string; 
   currencySettings?: {
+      amountType: 'fixed' | 'field';
+      amount?: number; 
+      sourceFieldId?: string; // ID of a NUMBER block
       baseCurrency: string; 
       targetCurrency: string; 
-      amount: number;
   };
   paymentSettings?: {
       amountType: 'fixed' | 'variable';
@@ -76,6 +81,11 @@ export interface DocBlock {
       variableName?: string; 
   };
   videoUrl?: string;
+  
+  // Signature Specific
+  signatureId?: string;
+  signedAt?: number;
+  signatureType?: 'drawn' | 'typed' | 'uploaded';
 }
 
 export interface PageMargins {
@@ -93,6 +103,7 @@ export interface DocumentSettings {
     emailReminders?: boolean;
     reminderDays?: number;
     expirationDays?: number;
+    expirationDate?: string; // Specific date override
     webhookUrl?: string;
     signingOrder?: 'parallel' | 'sequential';
     margins?: PageMargins;

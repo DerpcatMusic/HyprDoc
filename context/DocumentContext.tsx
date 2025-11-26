@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { DocumentState, DocBlock, BlockType, AuditLogEntry, Party, DocumentSettings, Term } from '../types';
 
@@ -11,9 +12,10 @@ interface DocumentContextType {
     setMode: (mode: 'edit' | 'preview' | 'dashboard' | 'settings' | 'recipient') => void;
     setSelectedBlockId: (id: string | null) => void;
     
-    addBlock: (type: BlockType, insertAfterId?: string) => void;
+    addBlock: (type: BlockType, targetId?: string, position?: 'after' | 'inside') => void;
     updateBlock: (id: string, updates: Partial<DocBlock>) => void;
     deleteBlock: (id: string) => void;
+    moveBlock: (draggedId: string, targetId: string, position: 'after' | 'inside') => void;
     
     updateSettings: (settings: DocumentSettings) => void;
     addAuditLog: (action: AuditLogEntry['action'], details?: string) => void;
@@ -21,6 +23,8 @@ interface DocumentContextType {
     // Party Management
     updateParties: (parties: Party[]) => void;
     updateParty: (index: number, party: Party) => void;
+    addParty: (party: Party) => void;
+    removeParty: (id: string) => void;
 }
 
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
@@ -54,6 +58,32 @@ const SAMPLE_DOC: DocumentState = {
   auditLog: [
       { id: 'l1', timestamp: Date.now() - 100000, action: 'created', user: 'System' },
   ]
+};
+
+// Helper for nice default labels
+const getNiceLabel = (type: BlockType): string => {
+    switch(type) {
+        case BlockType.TEXT: return 'Text Content';
+        case BlockType.INPUT: return 'Short Answer';
+        case BlockType.LONG_TEXT: return 'Long Answer';
+        case BlockType.NUMBER: return 'Number Input';
+        case BlockType.EMAIL: return 'Email Address';
+        case BlockType.SELECT: return 'Dropdown Menu';
+        case BlockType.RADIO: return 'Single Choice';
+        case BlockType.CHECKBOX: return 'Checkbox';
+        case BlockType.DATE: return 'Date Picker';
+        case BlockType.SIGNATURE: return 'Signature';
+        case BlockType.IMAGE: return 'Image Upload';
+        case BlockType.FILE_UPLOAD: return 'File Attachment';
+        case BlockType.SECTION_BREAK: return 'Section Break';
+        case BlockType.PAYMENT: return 'Payment Request';
+        case BlockType.CURRENCY: return 'Currency Value';
+        case BlockType.VIDEO: return 'Video Embed';
+        case BlockType.CONDITIONAL: return 'Conditional Branch';
+        case BlockType.REPEATER: return 'Repeater Group';
+        case BlockType.FORMULA: return 'Formula Calculation';
+        default: return 'New Field';
+    }
 };
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
@@ -96,13 +126,78 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (selectedBlockId === id) setSelectedBlockId(null);
     };
 
+    // Move Block
+    const moveBlock = (draggedId: string, targetId: string, position: 'after' | 'inside') => {
+        setDoc(prev => {
+            const newBlocks = [...prev.blocks];
+            
+            // 1. Find and remove dragged block
+            let draggedBlock: DocBlock | null = null;
+            
+            const removeRecursive = (list: DocBlock[]): DocBlock[] => {
+                const filtered = [];
+                for (const b of list) {
+                    if (b.id === draggedId) {
+                        draggedBlock = b;
+                        continue; 
+                    }
+                    if (b.children) {
+                        b.children = removeRecursive(b.children);
+                    }
+                    filtered.push(b);
+                }
+                return filtered;
+            }
+            
+            const blocksWithoutDragged = removeRecursive(newBlocks);
+            
+            if (!draggedBlock) return prev; 
+
+            // 2. Insert at new location
+            const insertRecursive = (list: DocBlock[]): boolean => {
+                if (position === 'inside') {
+                     const target = list.find(b => b.id === targetId);
+                     if (target) {
+                         target.children = target.children || [];
+                         target.children.push(draggedBlock!);
+                         return true;
+                     }
+                }
+
+                if (position === 'after') {
+                     const idx = list.findIndex(b => b.id === targetId);
+                     if (idx !== -1) {
+                         list.splice(idx + 1, 0, draggedBlock!);
+                         return true;
+                     }
+                }
+
+                for (const b of list) {
+                    if (b.children) {
+                        if (insertRecursive(b.children)) return true;
+                    }
+                }
+                return false;
+            }
+
+            if (!insertRecursive(blocksWithoutDragged)) {
+                 blocksWithoutDragged.push(draggedBlock);
+            }
+
+            return { ...prev, blocks: blocksWithoutDragged };
+        });
+    };
+
     // Recursive Add
-    const addBlock = (type: BlockType, insertAfterId?: string) => {
+    const addBlock = (type: BlockType, targetId?: string, position: 'after' | 'inside' = 'after') => {
+        // Safety check: if targetId is actually an Event object (from a mis-bound click handler), ignore it
+        const safeTargetId = typeof targetId === 'string' ? targetId : undefined;
+
         const newBlock: DocBlock = {
             id: crypto.randomUUID(),
             type,
             content: type === BlockType.TEXT ? '' : undefined,
-            label: `New ${type}`,
+            label: getNiceLabel(type),
             variableName: `field_${Date.now()}`,
             options: (type === BlockType.SELECT || type === BlockType.RADIO || type === BlockType.CHECKBOX) ? ['Option 1'] : undefined,
             repeaterFields: type === BlockType.REPEATER ? [
@@ -110,55 +205,47 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             ] : undefined,
             children: type === BlockType.CONDITIONAL ? [] : undefined,
             condition: type === BlockType.CONDITIONAL ? { variableName: '', equals: '' } : undefined,
-            currencySettings: type === BlockType.CURRENCY ? { baseCurrency: 'USD', targetCurrency: 'EUR', amount: 1000 } : undefined
+            currencySettings: type === BlockType.CURRENCY ? { amountType: 'fixed', baseCurrency: 'USD', targetCurrency: 'EUR', amount: 1000 } : undefined
         };
 
         setDoc(prev => {
-            // Helper to find and insert into the correct list
-            const insertRecursive = (list: DocBlock[]): { newList: DocBlock[], inserted: boolean } => {
-                const newList = [...list];
-                
-                // Case 1: Insert after specific ID
-                if (insertAfterId) {
-                    const idx = newList.findIndex(b => b.id === insertAfterId);
-                    if (idx !== -1) {
-                         // Found it in this level
-                         newList.splice(idx + 1, 0, newBlock);
-                         return { newList, inserted: true };
-                    }
-                    
-                    // Not found, check children
-                    for (let i = 0; i < newList.length; i++) {
-                        if (newList[i].children) {
-                            const result = insertRecursive(newList[i].children!);
-                            if (result.inserted) {
-                                newList[i] = { ...newList[i], children: result.newList };
-                                return { newList, inserted: true };
-                            }
-                        }
-                    }
-                    return { newList, inserted: false };
+            const newBlocks = JSON.parse(JSON.stringify(prev.blocks));
+
+            const insertRecursive = (list: DocBlock[]): boolean => {
+                if (position === 'inside') {
+                     const target = list.find(b => b.id === safeTargetId);
+                     if (target) {
+                         target.children = target.children || [];
+                         target.children.push(newBlock);
+                         return true;
+                     }
                 } else {
-                    // Case 2: No ID provided, append to root (handled by caller if recursive returns false/irrelevant, but here we just push to root list if it is the root call)
-                    // Actually, if we are calling this function recursively, 'list' is a children array. 
-                    // But if insertAfterId is undefined, we usually mean "Append to Root".
-                    return { newList, inserted: false };
+                     const idx = list.findIndex(b => b.id === safeTargetId);
+                     if (idx !== -1) {
+                         list.splice(idx + 1, 0, newBlock);
+                         return true;
+                     }
                 }
+                
+                for (const b of list) {
+                    if (b.children && insertRecursive(b.children)) return true;
+                }
+                return false;
             };
 
-            if (insertAfterId) {
-                const result = insertRecursive(prev.blocks);
-                if (result.inserted) {
-                    return { ...prev, blocks: result.newList };
+            if (safeTargetId) {
+                if (!insertRecursive(newBlocks)) {
+                    newBlocks.push(newBlock); // Fallback if target not found
                 }
+            } else {
+                newBlocks.push(newBlock);
             }
             
-            // Default: Append to root
-            return { ...prev, blocks: [...prev.blocks, newBlock] };
+            return { ...prev, blocks: newBlocks };
         });
         
         setSelectedBlockId(newBlock.id);
-        addAuditLog('edited', `Added ${type} block`);
+        addAuditLog('edited', `Added ${getNiceLabel(type)} block`);
     };
 
     const updateSettings = (settings: DocumentSettings) => {
@@ -176,13 +263,21 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             newParties[index] = party;
             return { ...prev, parties: newParties };
         });
-    }
+    };
+
+    const addParty = (party: Party) => {
+        setDoc(prev => ({ ...prev, parties: [...prev.parties, party] }));
+    };
+
+    const removeParty = (id: string) => {
+        setDoc(prev => ({ ...prev, parties: prev.parties.filter(p => p.id !== id) }));
+    };
 
     return (
         <DocumentContext.Provider value={{
             doc, setDoc, mode, setMode, selectedBlockId, setSelectedBlockId,
-            addBlock, updateBlock, deleteBlock, updateSettings, addAuditLog,
-            updateParties, updateParty
+            addBlock, updateBlock, deleteBlock, moveBlock, updateSettings, addAuditLog,
+            updateParties, updateParty, addParty, removeParty
         }}>
             {children}
         </DocumentContext.Provider>
