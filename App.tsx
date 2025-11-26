@@ -73,7 +73,7 @@ const AppContent: React.FC = () => {
     return (
         <div className="flex h-screen w-screen bg-background text-foreground font-sans overflow-hidden">
             {/* Navigation Sidebar */}
-            <div className="hidden md:flex w-16 md:w-20 border-r-2 border-black bg-white dark:bg-zinc-950 dark:border-zinc-800 flex-col items-center py-6 gap-6 z-30 shadow-md">
+            <div className="hidden md:flex w-16 md:w-20 border-r-2 border-black bg-white dark:bg-zinc-950 dark:border-zinc-800 flex-col items-center py-6 gap-6 z-30 shadow-md flex-shrink-0">
                 <div className="w-10 h-10 bg-primary flex items-center justify-center text-white shadow-hypr-sm border-2 border-black dark:border-zinc-700 font-bold text-xl">
                     H
                 </div>
@@ -90,7 +90,7 @@ const AppContent: React.FC = () => {
 
             {/* Glossary Sidebar */}
             {showGlossary && (
-                <div className="w-80 border-r-2 border-black bg-background z-20 animate-in slide-in-from-left duration-300 shadow-hypr dark:border-zinc-800">
+                <div className="w-80 border-r-2 border-black bg-background z-20 animate-in slide-in-from-left duration-300 shadow-hypr dark:border-zinc-800 flex-shrink-0">
                     <GlossaryManager 
                         terms={doc.terms} 
                         onAddTerm={(t) => setDoc(p => ({...p, terms: [...p.terms, t]}))} 
@@ -122,7 +122,7 @@ const AppContent: React.FC = () => {
             {mode === 'edit' && (
             <>
             {/* TOOLBOX */}
-            <div className="hidden md:flex w-72 border-r-2 border-black dark:border-zinc-800 bg-background flex-col z-20 shadow-sm">
+            <div className="hidden md:flex w-72 border-r-2 border-black dark:border-zinc-800 bg-background flex-col z-20 shadow-sm flex-shrink-0">
                 <div className="p-5 border-b-2 border-black dark:border-zinc-800 h-16 flex items-center justify-between bg-muted/20">
                     <span className="font-black font-mono text-sm tracking-widest uppercase">Components</span>
                     <span className="text-xs font-mono opacity-50">LIB_V2</span>
@@ -130,38 +130,41 @@ const AppContent: React.FC = () => {
                 <Toolbox onDragStart={handleDragStartToolbox} onAddBlock={addBlock} />
             </div>
 
-            {/* CANVAS */}
-            <EditorCanvas 
-                docTitle={doc.title}
-                docSettings={doc.settings}
-                blocks={doc.blocks}
-                parties={doc.parties}
-                selectedBlockId={selectedBlockId}
-                showPartyManager={showPartyManager}
-                onTitleChange={(t) => setDoc(prev => ({...prev, title: t}))}
-                onTogglePartyManager={setShowPartyManager}
-                onPreview={() => setMode('preview')}
-                onSend={() => setShowSendModal(true)}
-                onSelectBlock={setSelectedBlockId}
-                onUpdateBlock={updateBlock}
-                onDeleteBlock={deleteBlock}
-                onAddBlock={addBlock}
-                onDropBlock={handleDropCanvas}
-                onUpdateParty={(i, p) => {
-                    const newParties = [...doc.parties];
-                    newParties[i] = p;
-                    setDoc(d => ({...d, parties: newParties}));
-                }}
-            />
+            {/* MAIN EDITOR AREA - FLEX CONTAINER */}
+            <div className="flex-1 flex min-w-0 relative">
+                {/* CANVAS */}
+                <EditorCanvas 
+                    docTitle={doc.title}
+                    docSettings={doc.settings}
+                    blocks={doc.blocks}
+                    parties={doc.parties}
+                    selectedBlockId={selectedBlockId}
+                    showPartyManager={showPartyManager}
+                    onTitleChange={(t) => setDoc(prev => ({...prev, title: t}))}
+                    onTogglePartyManager={setShowPartyManager}
+                    onPreview={() => setMode('preview')}
+                    onSend={() => setShowSendModal(true)}
+                    onSelectBlock={setSelectedBlockId}
+                    onUpdateBlock={updateBlock}
+                    onDeleteBlock={deleteBlock}
+                    onAddBlock={addBlock}
+                    onDropBlock={handleDropCanvas}
+                    onUpdateParty={(i, p) => {
+                        const newParties = [...doc.parties];
+                        newParties[i] = p;
+                        setDoc(d => ({...d, parties: newParties}));
+                    }}
+                />
 
-            {/* PROPERTIES PANEL (Always rendered, handles empty state internally) */}
-            <PropertiesPanel 
-                block={doc.blocks.find(b => b.id === selectedBlockId) || null}
-                parties={doc.parties}
-                onUpdate={updateBlock}
-                onDelete={deleteBlock}
-                onClose={() => setSelectedBlockId(null)}
-            />
+                {/* PROPERTIES PANEL (Relative Flex Item) */}
+                <PropertiesPanel 
+                    block={doc.blocks.find(b => b.id === selectedBlockId) || null}
+                    parties={doc.parties}
+                    onUpdate={updateBlock}
+                    onDelete={deleteBlock}
+                    onClose={() => setSelectedBlockId(null)}
+                />
+            </div>
             </>
             )}
             

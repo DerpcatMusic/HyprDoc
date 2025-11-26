@@ -5,7 +5,7 @@ import {
     Trash2, GripVertical, List, Type, Hash, Mail, Calendar, CheckSquare, 
     CircleDot, Image as ImageIcon, FileSignature, AlignLeft, Minus, 
     UploadCloud, Code as CodeIcon, Braces, FileText, Calculator, CreditCard, Video, DollarSign,
-    Settings2, User, MoreHorizontal, Edit2, Columns
+    Settings2, User, MoreHorizontal, Edit2, Columns, LayoutTemplate
 } from 'lucide-react';
 import { Button, cn } from './ui-components';
 import { ConditionalZone } from './editor/ConditionalZone';
@@ -21,7 +21,7 @@ interface EditorBlockProps {
   onUpdate: (id: string, updates: Partial<DocBlock>) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
-  onDrop: (e: React.DragEvent, id: string) => void;
+  onDrop: (e: React.DragEvent, id: string, position?: 'left'|'right'|'top'|'bottom'|'inside') => void;
   depth?: number;
   index?: number;
 }
@@ -60,7 +60,7 @@ const getBlockCategoryClass = (type: BlockType) => {
 
         case BlockType.COLUMNS:
         case BlockType.COLUMN:
-            return "bg-indigo-50/50 border-indigo-200 dark:bg-indigo-900/10 dark:border-indigo-900/30"; // Layout
+            return "bg-transparent border-transparent"; // Layout
         
         default:
              return "bg-white border-gray-200 dark:bg-zinc-900 dark:border-zinc-700";
@@ -80,9 +80,10 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   depth = 0
 }) => {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const [isDragOver, setIsDragOver] = useState(false);
+  const blockRef = useRef<HTMLDivElement>(null);
+  const [dropPosition, setDropPosition] = useState<'top' | 'bottom' | 'left' | 'right' | null>(null);
   const [isEditingText, setIsEditingText] = useState(false);
-  const { addBlock } = useDocument();
+  const { addBlock, ungroupRow } = useDocument();
 
   useEffect(() => {
     if (block.type === BlockType.TEXT && textareaRef.current) {
@@ -95,11 +96,9 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   useEffect(() => {
     if (isSelected && block.type === BlockType.TEXT) {
         setIsEditingText(true);
-        // Small timeout to allow render
         setTimeout(() => {
             if (textareaRef.current) {
                 textareaRef.current.focus();
-                // Set cursor to end
                 textareaRef.current.setSelectionRange(textareaRef.current.value.length, textareaRef.current.value.length);
             }
         }, 10);
@@ -111,30 +110,105 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isDragOver && block.type !== BlockType.COLUMN) setIsDragOver(true);
+
+    if (block.type === BlockType.COLUMN) {
+        // Allow dropping inside columns
+        return; 
+    }
+
+    if (!blockRef.current) return;
+    const rect = blockRef.current.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    
+    // Notion-style detection
+    const w = rect.width;
+    const h = rect.height;
+    
+    // 20% threshold for columns
+    if (x < w * 0.2) setDropPosition('left');
+    else if (x > w * 0.8) setDropPosition('right');
+    else if (y < h * 0.5) setDropPosition('top');
+    else setDropPosition('bottom');
   };
 
   const handleDragLeave = (e: React.DragEvent) => {
     e.preventDefault();
-    e.stopPropagation();
-    if (isDragOver) setIsDragOver(false);
+    setDropPosition(null);
   };
 
   const handleDropInternal = (e: React.DragEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    setIsDragOver(false);
 
-    // If dropping into a column, handle specific logic in the Column render
+    // If dropping into a column, handle specific logic
     if (block.type === BlockType.COLUMN) {
         const newType = e.dataTransfer.getData('application/hyprdoc-new') as BlockType;
         if (newType) {
              addBlock(newType, block.id, 'inside');
+        } else {
+             const existingId = e.dataTransfer.getData('application/hyprdoc-block-id');
+             if(existingId) onDrop(e, block.id, 'inside');
         }
+        setDropPosition(null);
         return;
     }
 
-    onDrop(e, block.id);
+    if (dropPosition) {
+        onDrop(e, block.id, dropPosition);
+    }
+    setDropPosition(null);
+  };
+
+  // --- Column Resizing Logic ---
+  const handleColumnResize = (e: React.MouseEvent, index: number) => {
+      e.preventDefault();
+      e.stopPropagation(); // Stop propagation to prevent selecting parent
+      
+      const startX = e.clientX;
+      const parentWidth = blockRef.current?.offsetWidth || 1;
+      
+      // Get current children
+      const leftCol = block.children![index];
+      const rightCol = block.children![index + 1];
+      
+      // Default to 50 if width is undefined to prevent NaN
+      const startLeftWidth = typeof leftCol.width === 'number' ? leftCol.width : 50;
+      const startRightWidth = typeof rightCol.width === 'number' ? rightCol.width : 50;
+
+      const onMove = (mv: MouseEvent) => {
+          const deltaX = mv.clientX - startX;
+          const deltaPercent = (deltaX / parentWidth) * 100;
+          
+          let newLeft = startLeftWidth + deltaPercent;
+          let newRight = startRightWidth - deltaPercent;
+          
+          // Constrain to prevent disappearance (5% min width)
+          // Also ensure sum remains consistent approx 100%
+          const minWidth = 5;
+          const totalWidth = startLeftWidth + startRightWidth;
+          
+          if (newLeft < minWidth) { 
+              newLeft = minWidth; 
+              newRight = totalWidth - minWidth; 
+          }
+          if (newRight < minWidth) { 
+              newRight = minWidth; 
+              newLeft = totalWidth - minWidth; 
+          }
+
+          onUpdate(leftCol.id, { width: newLeft });
+          onUpdate(rightCol.id, { width: newRight });
+      };
+
+      const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          // Re-enable selection if needed
+      };
+
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
   };
 
   const assignedParty = parties.find(p => p.id === block.assignedToPartyId) || parties[0]; 
@@ -188,69 +262,87 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   if (isColumns) {
       return (
           <div 
+            ref={blockRef}
+            data-flip-id={block.id}
             className={cn(
-                "relative group mb-4 border-2 border-dashed border-indigo-200/50 dark:border-indigo-900/50 hover:border-indigo-400 transition-all p-2 bg-indigo-50/10",
-                isSelected && "border-indigo-500 dark:border-indigo-500"
+                "relative group mb-4",
+                isSelected && "ring-2 ring-indigo-500/20 rounded-sm"
             )}
             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
             draggable
             onDragStart={(e) => onDragStart(e, block.id)}
           >
-               {/* Drag Handle for Columns */}
-                <div 
-                    className="absolute -left-6 top-0 bottom-0 w-6 cursor-grab active:cursor-grabbing flex items-center justify-center opacity-0 group-hover:opacity-100 transition-none z-10 text-indigo-500"
-                    draggable
-                    onDragStart={(e) => onDragStart(e, block.id)}
-                >
-                    <GripVertical size={16} />
-                </div>
-
-                <div className="flex items-center gap-2 mb-2 px-1">
-                    <Columns size={14} className="text-indigo-500" />
-                    <span className="text-[10px] font-bold uppercase text-indigo-500 tracking-wider font-mono">Split Layout</span>
-                    <div className="ml-auto">
-                        <Button variant="ghost" size="icon" className="h-5 w-5 text-indigo-500 hover:bg-indigo-100 dark:hover:bg-indigo-900" onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}>
+              {/* Layout Toolbar */}
+              {isSelected && (
+                  <div className="absolute -top-9 right-0 flex items-center gap-0 border-2 border-black dark:border-zinc-600 bg-white dark:bg-zinc-800 shadow-hypr dark:shadow-hypr-dark z-50">
+                        <button 
+                            className="flex items-center gap-2 px-3 py-1 hover:bg-primary hover:text-white h-full text-xs font-bold font-mono uppercase text-black dark:text-white border-r-2 border-black dark:border-zinc-600"
+                            onClick={(e) => { e.stopPropagation(); ungroupRow(block.id); }}
+                            title="Ungroup Columns (Flatten)"
+                        >
+                            <LayoutTemplate size={12} /> Ungroup
+                        </button>
+                        <button 
+                            className="p-1.5 hover:bg-red-500 hover:text-white text-black dark:text-white h-full flex items-center justify-center transition-colors"
+                            onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}
+                            title="Delete Row"
+                        >
                             <Trash2 size={12} />
-                        </Button>
-                    </div>
-                </div>
+                        </button>
+                  </div>
+              )}
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="flex w-full relative">
                   {block.children?.map((col, i) => (
-                      <EditorBlock 
-                          key={col.id}
-                          block={col}
-                          index={i}
-                          isSelected={false}
-                          allBlocks={allBlocks}
-                          parties={parties}
-                          formValues={{}}
-                          onSelect={onSelect}
-                          onUpdate={(id, u) => {
-                              // Recursively find and update in the columns structure
-                              const newChildren = block.children!.map(c => {
-                                  if (c.id === id) return { ...c, ...u };
-                                  // If deeper nesting existed we'd need more recursion, but for 1-level columns this works
-                                  // Actually, the children of the column are what we update usually
-                                  if (c.children) {
-                                      const updatedGrandChildren = c.children.map(gc => gc.id === id ? { ...gc, ...u } : gc);
-                                      return { ...c, children: updatedGrandChildren };
-                                  }
-                                  return c;
-                              });
-                              onUpdate(block.id, { children: newChildren });
-                          }}
-                          onDelete={(id) => {
-                             // Find if the ID is a column or a child of a column
-                             const newChildren = block.children!.map(c => ({
-                                 ...c,
-                                 children: c.children?.filter(gc => gc.id !== id)
-                             }));
-                             onUpdate(block.id, { children: newChildren });
-                          }}
-                          onDragStart={onDragStart}
-                          onDrop={onDrop}
-                      />
+                      <React.Fragment key={col.id}>
+                        <EditorBlock 
+                            block={col}
+                            index={i}
+                            isSelected={false}
+                            allBlocks={allBlocks}
+                            parties={parties}
+                            formValues={{}}
+                            onSelect={onSelect} // Selecting a column usually selects the parent in Notion, but we allow deep select if needed.
+                            onUpdate={(id, u) => {
+                                const newChildren = block.children!.map(c => {
+                                    if (c.id === id) return { ...c, ...u };
+                                    if (c.children) {
+                                        // Deep update for children inside columns
+                                        const updateDeep = (list: DocBlock[]): DocBlock[] => {
+                                            return list.map(gc => {
+                                                if (gc.id === id) return { ...gc, ...u };
+                                                if (gc.children) return { ...gc, children: updateDeep(gc.children) };
+                                                return gc;
+                                            });
+                                        };
+                                        return { ...c, children: updateDeep(c.children) };
+                                    }
+                                    return c;
+                                });
+                                onUpdate(block.id, { children: newChildren });
+                            }}
+                            onDelete={(id) => {
+                                // Deleting a child of a column
+                                const newChildren = block.children!.map(c => ({
+                                    ...c,
+                                    children: c.children?.filter(gc => gc.id !== id)
+                                }));
+                                onUpdate(block.id, { children: newChildren });
+                            }}
+                            onDragStart={onDragStart}
+                            onDrop={onDrop}
+                        />
+                        {/* Resizer Handle */}
+                        {i < (block.children?.length || 0) - 1 && (
+                            <div 
+                                className="w-4 -ml-2 hover:bg-indigo-500/10 cursor-col-resize flex items-center justify-center group/resizer z-10 transition-colors absolute top-0 bottom-0"
+                                style={{ left: `${(block.children![i].width || 50)}%` }} // Position absolutely based on left column width
+                                onMouseDown={(e) => handleColumnResize(e, i)}
+                            >
+                                <div className="w-[2px] h-6 bg-black/20 dark:bg-white/20 group-hover/resizer:bg-indigo-500 group-hover/resizer:h-full transition-all" />
+                            </div>
+                        )}
+                      </React.Fragment>
                   ))}
               </div>
           </div>
@@ -259,16 +351,20 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
 
   // Inner Column Renderer
   if (isColumn) {
+      // Safety fallback for width
+      const width = typeof block.width === 'number' && !isNaN(block.width) ? block.width : 50;
+      
       return (
           <div 
-            className="min-h-[100px] border-2 border-dashed border-indigo-200/30 dark:border-indigo-900/30 bg-white/50 dark:bg-zinc-900/20 p-2 flex flex-col gap-2"
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.add('bg-indigo-50', 'dark:bg-indigo-900/20', 'border-indigo-400'); }}
-            onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); e.currentTarget.classList.remove('bg-indigo-50', 'dark:bg-indigo-900/20', 'border-indigo-400'); }}
+            style={{ width: `${width}%` }}
+            className="flex flex-col gap-2 min-h-[50px] relative transition-none px-2"
+            onDragOver={handleDragOver}
+            onDragLeave={handleDragLeave}
             onDrop={handleDropInternal}
           >
               {(!block.children || block.children.length === 0) && (
-                   <div className="flex-1 flex flex-col items-center justify-center text-indigo-300 dark:text-indigo-700 pointer-events-none">
-                       <span className="text-[10px] font-mono uppercase">Empty Column</span>
+                   <div className="flex-1 flex flex-col items-center justify-center border-2 border-dashed border-zinc-200 dark:border-zinc-800 rounded-lg m-1 p-4 bg-zinc-50/50 dark:bg-zinc-900/20 text-muted-foreground min-h-[80px]">
+                       <span className="text-[10px] font-mono uppercase">Column</span>
                    </div>
               )}
               {block.children?.map((child, i) => (
@@ -276,13 +372,13 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
                     key={child.id}
                     block={child}
                     index={i}
-                    isSelected={false} // Inner blocks managed by parent canvas mostly, but selection logic could bubble
+                    isSelected={false} 
                     allBlocks={allBlocks}
                     parties={parties}
                     formValues={{}}
                     onSelect={onSelect}
-                    onUpdate={(id, u) => onUpdate(id, u)} // Bubble up
-                    onDelete={(id) => onDelete(id)} // Bubble up
+                    onUpdate={(id, u) => onUpdate(id, u)} 
+                    onDelete={(id) => onDelete(id)} 
                     onDragStart={onDragStart}
                     onDrop={onDrop}
                   />
@@ -369,6 +465,7 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
   
   return (
     <div 
+      ref={blockRef}
       data-flip-id={block.id}
       className={cn(
           "relative group mb-4 transition-none pb-2", 
@@ -380,9 +477,18 @@ export const EditorBlock: React.FC<EditorBlockProps> = ({
       onDrop={handleDropInternal}
       onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
     >
-        {/* Drop Indicator Line */}
-        {isDragOver && (
-             <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary z-50 shadow-sm border-y border-black/20 animate-pulse pointer-events-none" />
+        {/* Drop Indicators */}
+        {dropPosition === 'top' && (
+             <div className="absolute -top-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none" />
+        )}
+        {dropPosition === 'bottom' && (
+             <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary z-50 pointer-events-none" />
+        )}
+        {dropPosition === 'left' && (
+             <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary z-50 pointer-events-none" />
+        )}
+        {dropPosition === 'right' && (
+             <div className="absolute top-0 bottom-0 right-0 w-1 bg-primary z-50 pointer-events-none" />
         )}
 
         {/* Floating Action Toolbar */}

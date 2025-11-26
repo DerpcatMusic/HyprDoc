@@ -47,7 +47,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     onDropBlock,
     onUpdateParty
 }) => {
-    const { updateSettings, moveBlock, addParty, removeParty, addBlock } = useDocument();
+    const { updateSettings, moveBlock, createColumnLayout, addParty, removeParty, addBlock } = useDocument();
     const [showGrid, setShowGrid] = useState(false);
     const [marginSnap, setMarginSnap] = useState(10);
     const [mirrorMargins, setMirrorMargins] = useState(false);
@@ -92,17 +92,28 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         setTimeout(() => document.body.removeChild(ghost), 0);
     };
 
-    const handleDropBlockInternal = (e: React.DragEvent, targetId?: string) => {
+    const handleDropBlockInternal = (e: React.DragEvent, targetId?: string, position?: 'left'|'right'|'top'|'bottom'|'inside') => {
         e.preventDefault();
         e.stopPropagation();
 
         const draggedBlockId = e.dataTransfer.getData('application/hyprdoc-block-id');
         const newBlockType = e.dataTransfer.getData('application/hyprdoc-new') as BlockType;
 
+        // Column Creation Logic
+        if (targetId && (position === 'left' || position === 'right')) {
+            if (draggedBlockId && draggedBlockId !== targetId) {
+                createColumnLayout(targetId, draggedBlockId, position);
+            } else if (newBlockType) {
+                createColumnLayout(targetId, newBlockType, position);
+            }
+            return;
+        }
+
+        // Standard Drop
         if (draggedBlockId && targetId && draggedBlockId !== targetId) {
-            moveBlock(draggedBlockId, targetId, 'after');
+            moveBlock(draggedBlockId, targetId, position === 'inside' ? 'inside' : 'after');
         } else if (newBlockType) {
-            addBlock(newBlockType, targetId, 'after');
+            addBlock(newBlockType, targetId, position === 'inside' ? 'inside' : 'after');
         }
     };
     

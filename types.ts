@@ -59,6 +59,7 @@ export interface DocBlock {
   required?: boolean;
   assignedToPartyId?: string; 
   allowMultiple?: boolean; // For Checkbox groups
+  width?: number; // For column resizing (percentage)
   
   condition?: {
     variableName: string;

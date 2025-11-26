@@ -16,6 +16,8 @@ interface DocumentContextType {
     updateBlock: (id: string, updates: Partial<DocBlock>) => void;
     deleteBlock: (id: string) => void;
     moveBlock: (draggedId: string, targetId: string, position: 'after' | 'inside') => void;
+    createColumnLayout: (targetBlockId: string, source: string | BlockType, direction: 'left' | 'right') => void;
+    ungroupRow: (rowId: string) => void; // New Unsplit function
     
     updateSettings: (settings: DocumentSettings) => void;
     addAuditLog: (action: AuditLogEntry['action'], details?: string) => void;
@@ -126,6 +128,118 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         if (selectedBlockId === id) setSelectedBlockId(null);
     };
 
+    // New helper to create a block object
+    const createBlockObject = (type: BlockType): DocBlock => {
+        return {
+            id: crypto.randomUUID(),
+            type,
+            content: type === BlockType.TEXT ? '' : undefined,
+            label: getNiceLabel(type),
+            variableName: `field_${Date.now()}`,
+            options: (type === BlockType.SELECT || type === BlockType.RADIO || type === BlockType.CHECKBOX) ? ['Option 1'] : undefined,
+            children: (type === BlockType.CONDITIONAL || type === BlockType.COLUMNS || type === BlockType.COLUMN) ? [] : undefined,
+            condition: type === BlockType.CONDITIONAL ? { variableName: '', equals: '' } : undefined,
+            width: type === BlockType.COLUMN ? 50 : undefined
+        };
+    };
+
+    // Ungroup/Unsplit a Row
+    const ungroupRow = (rowId: string) => {
+        setDoc(prev => {
+            const newBlocks = [...prev.blocks];
+            
+            // Find the row and its index
+            const rowIndex = newBlocks.findIndex(b => b.id === rowId);
+            if (rowIndex === -1) return prev;
+            
+            const rowBlock = newBlocks[rowIndex];
+            if (rowBlock.type !== BlockType.COLUMNS || !rowBlock.children) return prev;
+
+            // Extract all children from all columns
+            const extractedBlocks: DocBlock[] = [];
+            rowBlock.children.forEach(col => {
+                if (col.children) {
+                    extractedBlocks.push(...col.children);
+                }
+            });
+
+            // Replace the row block with the extracted blocks
+            newBlocks.splice(rowIndex, 1, ...extractedBlocks);
+
+            return { ...prev, blocks: newBlocks };
+        });
+        addAuditLog('edited', 'Ungrouped columns');
+    };
+
+    // Handle Splitting (Columns)
+    const createColumnLayout = (targetBlockId: string, source: string | BlockType, direction: 'left' | 'right') => {
+        setDoc(prev => {
+            let newBlocks = JSON.parse(JSON.stringify(prev.blocks));
+            
+            // 1. Identify Target and Source Block
+            let sourceBlock: DocBlock;
+            
+            // If source is a string, it's an ID (move operation)
+            if (typeof source === 'string' && !Object.values(BlockType).includes(source as BlockType)) {
+                 // Find and remove source block from tree
+                 let found: DocBlock | null = null;
+                 const removeSource = (list: DocBlock[]): DocBlock[] => {
+                     const filtered = [];
+                     for(const b of list) {
+                         if (b.id === source) {
+                             found = b;
+                             continue;
+                         }
+                         if (b.children) b.children = removeSource(b.children);
+                         filtered.push(b);
+                     }
+                     return filtered;
+                 }
+                 newBlocks = removeSource(newBlocks);
+                 if (found) sourceBlock = found;
+                 else return prev; // Should not happen
+            } else {
+                // Source is a new BlockType
+                sourceBlock = createBlockObject(source as BlockType);
+            }
+
+            // 2. Find Target and Replace with Columns
+            const replaceRecursive = (list: DocBlock[]): DocBlock[] => {
+                return list.map(b => {
+                    if (b.id === targetBlockId) {
+                        // Create Column Structure
+                        const col1: DocBlock = { ...createBlockObject(BlockType.COLUMN), width: 50 };
+                        const col2: DocBlock = { ...createBlockObject(BlockType.COLUMN), width: 50 };
+                        
+                        // If direction is left, new/source block goes left
+                        if (direction === 'left') {
+                            col1.children = [sourceBlock];
+                            col2.children = [b]; // Target block
+                        } else {
+                            col1.children = [b]; // Target block
+                            col2.children = [sourceBlock];
+                        }
+                        
+                        return {
+                            ...createBlockObject(BlockType.COLUMNS),
+                            children: [col1, col2]
+                        };
+                    }
+                    if (b.children) {
+                        return { ...b, children: replaceRecursive(b.children) };
+                    }
+                    return b;
+                });
+            };
+
+            newBlocks = replaceRecursive(newBlocks);
+            
+            return { ...prev, blocks: newBlocks };
+        });
+        
+        addAuditLog('edited', 'Created split layout');
+    };
+
     // Move Block
     const moveBlock = (draggedId: string, targetId: string, position: 'after' | 'inside') => {
         setDoc(prev => {
@@ -190,23 +304,8 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Recursive Add
     const addBlock = (type: BlockType, targetId?: string, position: 'after' | 'inside' = 'after') => {
-        // Safety check: if targetId is actually an Event object (from a mis-bound click handler), ignore it
         const safeTargetId = typeof targetId === 'string' ? targetId : undefined;
-
-        const newBlock: DocBlock = {
-            id: crypto.randomUUID(),
-            type,
-            content: type === BlockType.TEXT ? '' : undefined,
-            label: getNiceLabel(type),
-            variableName: `field_${Date.now()}`,
-            options: (type === BlockType.SELECT || type === BlockType.RADIO || type === BlockType.CHECKBOX) ? ['Option 1'] : undefined,
-            repeaterFields: type === BlockType.REPEATER ? [
-                { id: crypto.randomUUID(), type: BlockType.INPUT, label: 'Item Name', variableName: 'col_1' },
-            ] : undefined,
-            children: type === BlockType.CONDITIONAL ? [] : undefined,
-            condition: type === BlockType.CONDITIONAL ? { variableName: '', equals: '' } : undefined,
-            currencySettings: type === BlockType.CURRENCY ? { amountType: 'fixed', baseCurrency: 'USD', targetCurrency: 'EUR', amount: 1000 } : undefined
-        };
+        const newBlock = createBlockObject(type);
 
         setDoc(prev => {
             const newBlocks = JSON.parse(JSON.stringify(prev.blocks));
@@ -276,7 +375,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     return (
         <DocumentContext.Provider value={{
             doc, setDoc, mode, setMode, selectedBlockId, setSelectedBlockId,
-            addBlock, updateBlock, deleteBlock, moveBlock, updateSettings, addAuditLog,
+            addBlock, updateBlock, deleteBlock, moveBlock, createColumnLayout, ungroupRow, updateSettings, addAuditLog,
             updateParties, updateParty, addParty, removeParty
         }}>
             {children}

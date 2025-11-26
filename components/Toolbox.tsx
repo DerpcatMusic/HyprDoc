@@ -103,17 +103,9 @@ export const Toolbox: React.FC<ToolboxProps> = ({ onDragStart, onAddBlock }) => 
                 </div>
             </div>
 
-            {/* LAYOUT */}
-            <div>
-                <SectionHeader title="Layout" number="05" />
-                <div className="space-y-2">
-                    <ToolItem type={BlockType.COLUMNS} icon={Columns} label="2 Columns" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.layout} />
-                </div>
-            </div>
-
             {/* ADVANCED */}
             <div>
-                 <SectionHeader title="Logic" number="06" />
+                 <SectionHeader title="Logic" number="05" />
                 <div className="space-y-2">
                     <ToolItem type={BlockType.CONDITIONAL} icon={Settings} label="Conditional Branch" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.logic} />
                     <ToolItem type={BlockType.REPEATER} icon={List} label="Repeater Group" onDragStart={onDragStart} onClick={onAddBlock} colorClass={CATEGORY_COLORS.logic} />

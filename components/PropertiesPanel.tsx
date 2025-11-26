@@ -16,7 +16,6 @@ interface PropertiesPanelProps {
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties, onUpdate, onDelete, onClose }) => {
     const [newOption, setNewOption] = useState('');
-    const [isCollapsed, setIsCollapsed] = useState(false);
     const { doc } = useDocument();
 
     const handleAddOption = () => {
@@ -35,43 +34,21 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
 
     const numericBlocks = doc.blocks.filter(b => b.type === BlockType.NUMBER && block && b.id !== block.id);
 
+    // This component is now managed by flex layout in parent, 
+    // it expands/contracts based on `block` prop presence.
+    
     return (
         <div 
             className={cn(
-                "fixed top-0 right-0 h-full z-40 transition-transform duration-300 ease-in-out bg-white dark:bg-zinc-950 border-l-2 border-black dark:border-zinc-700 shadow-2xl",
-                block ? "translate-x-0" : "translate-x-full",
-                isCollapsed ? "w-12" : "w-80"
+                "h-full z-40 transition-all duration-300 ease-in-out bg-white dark:bg-zinc-950 border-l-2 border-black dark:border-zinc-700 shadow-2xl overflow-hidden",
+                block ? "w-80" : "w-0 border-l-0"
             )}
-            style={{ marginTop: '64px', height: 'calc(100% - 64px)' }} // Account for top bar
         >
-            {/* Collapsed State */}
-            {isCollapsed && (
-                <div className="flex flex-col items-center py-4 h-full bg-muted/10">
-                    <button 
-                        className="p-2 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors mb-4 border border-transparent hover:border-black dark:hover:border-zinc-500" 
-                        onClick={() => setIsCollapsed(false)} 
-                        title="Expand Properties"
-                    >
-                        <ChevronLeft size={16} />
-                    </button>
-                    <div className="mt-4 flex flex-col gap-4 text-xs font-bold font-mono uppercase tracking-widest text-muted-foreground" style={{ writingMode: 'vertical-rl', textOrientation: 'mixed' }}>
-                        <span>Properties</span>
-                    </div>
-                </div>
-            )}
-
-            {/* Expanded State */}
-            {!isCollapsed && block && (
-                <div className="flex flex-col h-full">
+            {block && (
+                <div className="flex flex-col h-full min-w-[320px]">
                     <div className="h-12 border-b-2 border-black dark:border-zinc-700 flex items-center justify-between px-4 bg-muted/10 dark:bg-zinc-900">
-                        <button 
-                            className="p-1.5 hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors mr-2" 
-                            onClick={() => setIsCollapsed(true)}
-                        >
-                            <ChevronRight size={16} />
-                        </button>
-                        <span className="font-bold font-mono text-xs uppercase flex-1 truncate text-foreground dark:text-white">
-                            {block.type.replace('_', ' ')}
+                        <span className="font-bold font-mono text-xs uppercase flex-1 truncate text-foreground dark:text-white flex items-center gap-2">
+                           <Settings size={14} /> {block.type.replace('_', ' ')}
                         </span>
                         <button 
                             className="h-6 w-6 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors" 
