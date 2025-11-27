@@ -16,6 +16,7 @@ export const HyprEditor = () => {
   const docId = '00000000-0000-0000-0000-000000000000'; 
 
   const editor = useEditor({
+    immediatelyRender: false,
     extensions: [
       StarterKit,
       SmartFieldExtension,
