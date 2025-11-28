@@ -1,0 +1,204 @@
+
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HyprDoc - Next Gen Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          container: {
+            center: true,
+            padding: "2rem",
+            screens: {
+              "2xl": "1400px",
+            },
+          },
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+              signature: ['Dancing Script', 'cursive'],
+            },
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: {
+                DEFAULT: "hsl(var(--primary))",
+                foreground: "hsl(var(--primary-foreground))",
+              },
+              secondary: {
+                DEFAULT: "hsl(var(--secondary))",
+                foreground: "hsl(var(--secondary-foreground))",
+              },
+              destructive: {
+                DEFAULT: "hsl(var(--destructive))",
+                foreground: "hsl(var(--destructive-foreground))",
+              },
+              muted: {
+                DEFAULT: "hsl(var(--muted))",
+                foreground: "hsl(var(--muted-foreground))",
+              },
+              accent: {
+                DEFAULT: "hsl(var(--accent))",
+                foreground: "hsl(var(--accent-foreground))",
+              },
+              popover: {
+                DEFAULT: "hsl(var(--popover))",
+                foreground: "hsl(var(--popover-foreground))",
+              },
+              card: {
+                DEFAULT: "hsl(var(--card))",
+                foreground: "hsl(var(--card-foreground))",
+              },
+            },
+            borderRadius: {
+              lg: "var(--radius)",
+              md: "calc(var(--radius) - 1px)",
+              sm: "calc(var(--radius) - 2px)",
+            },
+            boxShadow: {
+              'hypr': '4px 4px 0px 0px rgba(0,0,0,1)',
+              'hypr-sm': '2px 2px 0px 0px rgba(0,0,0,1)',
+              'hypr-hover': '2px 2px 0px 0px rgba(0,0,0,1)',
+              'hypr-dark': '4px 4px 0px 0px rgba(0,0,0,0.5)', 
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      :root {
+        /* HYPR Industrial Theme - Light */
+        --background: 210 20% 98%; 
+        --foreground: 180 5% 5%; 
+        
+        --card: 0 0% 100%;
+        --card-foreground: 180 5% 5%;
+        
+        --popover: 0 0% 100%;
+        --popover-foreground: 180 5% 5%;
+        
+        --primary: 146 60% 35%; /* Industrial Green */
+        --primary-foreground: 0 0% 100%;
+        
+        --secondary: 210 10% 90%;
+        --secondary-foreground: 0 0% 0%;
+        
+        --muted: 210 10% 94%;
+        --muted-foreground: 210 5% 40%;
+        
+        --accent: 146 60% 90%;
+        --accent-foreground: 146 60% 20%;
+        
+        --destructive: 0 84% 60%;
+        --destructive-foreground: 0 0% 98%;
+        
+        --border: 0 0% 0%; /* Absolute Black Borders */
+        --input: 0 0% 0%;
+        --ring: 146 60% 35%;
+        
+        --radius: 0px; /* Brutalist */
+      }
+      
+      .dark {
+        /* HYPR Industrial Theme - Dark */
+        --background: 240 5% 10%;
+        --foreground: 0 0% 98%;
+        
+        --card: 240 5% 15%;
+        --card-foreground: 0 0% 98%;
+        
+        --popover: 240 5% 15%;
+        --popover-foreground: 0 0% 98%;
+        
+        --primary: 146 50% 50%;
+        --primary-foreground: 0 0% 100%;
+        
+        --secondary: 240 5% 20%;
+        --secondary-foreground: 0 0% 98%;
+        
+        --muted: 240 5% 20%;
+        --muted-foreground: 240 5% 65%;
+        
+        --accent: 240 5% 20%;
+        --accent-foreground: 0 0% 98%;
+        
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        
+        --border: 0 0% 30%;
+        --input: 0 0% 30%;
+        --ring: 146 50% 50%;
+      }
+ 
+      body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        -webkit-font-smoothing: antialiased;
+      }
+      
+      /* Technical Scrollbar */
+      ::-webkit-scrollbar { width: 10px; height: 10px; }
+      ::-webkit-scrollbar-track { background: hsl(var(--muted)); border-left: 1px solid hsl(var(--border)); }
+      ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border: 2px solid hsl(var(--muted)); }
+      ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
+
+      /* Grid Pattern */
+      .bg-grid-pattern {
+        background-size: 20px 20px;
+        background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1.5px, transparent 1.5px);
+      }
+      .dark .bg-grid-pattern {
+        background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1.5px, transparent 1.5px);
+      }
+      
+      /* Utilities */
+      .text-xxs { font-size: 0.65rem; line-height: 1rem; }
+    </style>
+  <script type="importmap">
+{
+  "imports": {
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
+    "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
+    "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^2.3.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174",
+    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
+    "@codemirror/view": "https://aistudiocdn.com/@codemirror/view@^6.38.8",
+    "@codemirror/commands": "https://aistudiocdn.com/@codemirror/commands@^6.10.0",
+    "vue": "https://aistudiocdn.com/vue@^3.5.25",
+    "chart.js/": "https://aistudiocdn.com/chart.js@^4.5.1/",
+    "@codemirror/language": "https://aistudiocdn.com/@codemirror/language@^6.11.3",
+    "rollbar/": "https://aistudiocdn.com/rollbar@^2.26.5/",
+    "@codemirror/lang-html": "https://aistudiocdn.com/@codemirror/lang-html@^6.4.11",
+    "@hotwired/turbo-rails/": "https://aistudiocdn.com/@hotwired/turbo-rails@^8.0.20/",
+    "signature_pad": "https://aistudiocdn.com/signature_pad@^5.1.2",
+    "driver.js": "https://aistudiocdn.com/driver.js@^1.4.0",
+    "driver.js/": "https://aistudiocdn.com/driver.js@^1.4.0/",
+    "@hotwired/turbo": "https://aistudiocdn.com/@hotwired/turbo@^8.0.20",
+    "autocompleter": "https://aistudiocdn.com/autocompleter@^9.3.2",
+    "@github/catalyst/": "https://aistudiocdn.com/@github/catalyst@^1.7.0/",
+    "@specious/htmlflow": "https://aistudiocdn.com/@specious/htmlflow@^1.1.0",
+    "gsap": "https://aistudiocdn.com/gsap@^3.12.5",
+    "gsap/Flip": "https://aistudiocdn.com/gsap@^3.12.5/Flip",
+    "gsap/": "https://aistudiocdn.com/gsap@^3.13.0/"
+  }
+}
+</script>
+</head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
