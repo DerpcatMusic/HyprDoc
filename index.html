@@ -1,19 +1,18 @@
-
 <!DOCTYPE html>
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>HyprDoc - Next Gen Builder</title>
+    <title>HyprDoc - Structuralist Builder</title>
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700;800&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
     <script>
       tailwind.config = {
         darkMode: 'class',
         theme: {
           container: {
             center: true,
-            padding: "2rem",
+            padding: "0rem",
             screens: {
               "2xl": "1400px",
             },
@@ -58,17 +57,25 @@
                 DEFAULT: "hsl(var(--card))",
                 foreground: "hsl(var(--card-foreground))",
               },
+              // Technical Colors
+              'tech-orange': '#FF4D00',
+              'tech-blue': '#0033FF',
             },
             borderRadius: {
-              lg: "var(--radius)",
-              md: "calc(var(--radius) - 1px)",
-              sm: "calc(var(--radius) - 2px)",
+              lg: "0px",
+              md: "0px",
+              sm: "0px",
+              DEFAULT: "0px",
             },
             boxShadow: {
-              'hypr': '4px 4px 0px 0px rgba(0,0,0,1)',
-              'hypr-sm': '2px 2px 0px 0px rgba(0,0,0,1)',
-              'hypr-hover': '2px 2px 0px 0px rgba(0,0,0,1)',
-              'hypr-dark': '4px 4px 0px 0px rgba(0,0,0,0.5)', 
+              'sharp': '4px 4px 0px 0px rgba(0,0,0,1)',
+              'sharp-sm': '2px 2px 0px 0px rgba(0,0,0,1)',
+              'sharp-hover': '6px 6px 0px 0px rgba(0,0,0,1)',
+              'sharp-dark': '4px 4px 0px 0px #ffffff',
+              'brutal': '8px 8px 0px 0px #000000', 
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             }
           },
         },
@@ -76,67 +83,67 @@
     </script>
     <style>
       :root {
-        /* HYPR Industrial Theme - Light */
-        --background: 210 20% 98%; 
-        --foreground: 180 5% 5%; 
+        /* HYPER-STRUCTURALIST THEME */
+        --radius: 0px; 
+        
+        --background: 0 0% 96%; /* Slight concrete grey */
+        --foreground: 0 0% 0%; 
         
         --card: 0 0% 100%;
-        --card-foreground: 180 5% 5%;
+        --card-foreground: 0 0% 0%;
         
         --popover: 0 0% 100%;
-        --popover-foreground: 180 5% 5%;
+        --popover-foreground: 0 0% 0%;
         
-        --primary: 146 60% 35%; /* Industrial Green */
+        /* Electric Indigo as primary, Safety Orange as functional accent */
+        --primary: 262 80% 50%;
         --primary-foreground: 0 0% 100%;
         
-        --secondary: 210 10% 90%;
+        --secondary: 0 0% 90%;
         --secondary-foreground: 0 0% 0%;
         
-        --muted: 210 10% 94%;
-        --muted-foreground: 210 5% 40%;
+        --muted: 0 0% 92%;
+        --muted-foreground: 0 0% 40%;
         
-        --accent: 146 60% 90%;
-        --accent-foreground: 146 60% 20%;
+        --accent: 262 80% 96%;
+        --accent-foreground: 262 80% 40%;
         
-        --destructive: 0 84% 60%;
-        --destructive-foreground: 0 0% 98%;
+        --destructive: 0 100% 50%;
+        --destructive-foreground: 0 0% 100%;
         
-        --border: 0 0% 0%; /* Absolute Black Borders */
+        --border: 0 0% 0%; 
         --input: 0 0% 0%;
-        --ring: 146 60% 35%;
-        
-        --radius: 0px; /* Brutalist */
+        --ring: 262 80% 50%;
       }
       
       .dark {
-        /* HYPR Industrial Theme - Dark */
-        --background: 240 5% 10%;
+        --background: 0 0% 5%; 
         --foreground: 0 0% 98%;
         
-        --card: 240 5% 15%;
+        --card: 0 0% 8%;
         --card-foreground: 0 0% 98%;
         
-        --popover: 240 5% 15%;
+        --popover: 0 0% 8%;
         --popover-foreground: 0 0% 98%;
         
-        --primary: 146 50% 50%;
-        --primary-foreground: 0 0% 100%;
+        --primary: 262 80% 65%;
+        --primary-foreground: 0 0% 0%;
         
-        --secondary: 240 5% 20%;
+        --secondary: 0 0% 15%;
         --secondary-foreground: 0 0% 98%;
         
-        --muted: 240 5% 20%;
-        --muted-foreground: 240 5% 65%;
+        --muted: 0 0% 15%;
+        --muted-foreground: 0 0% 60%;
         
-        --accent: 240 5% 20%;
+        --accent: 262 80% 15%;
         --accent-foreground: 0 0% 98%;
         
         --destructive: 0 62.8% 30.6%;
         --destructive-foreground: 0 0% 98%;
         
-        --border: 0 0% 30%;
-        --input: 0 0% 30%;
-        --ring: 146 50% 50%;
+        --border: 0 0% 100%;
+        --input: 0 0% 100%;
+        --ring: 262 80% 65%;
       }
  
       body {
@@ -145,32 +152,103 @@
         -webkit-font-smoothing: antialiased;
       }
       
-      /* Technical Scrollbar */
-      ::-webkit-scrollbar { width: 10px; height: 10px; }
-      ::-webkit-scrollbar-track { background: hsl(var(--muted)); border-left: 1px solid hsl(var(--border)); }
-      ::-webkit-scrollbar-thumb { background: hsl(var(--border)); border: 2px solid hsl(var(--muted)); }
+      /* Brutalist Scrollbar */
+      ::-webkit-scrollbar { width: 12px; height: 12px; }
+      ::-webkit-scrollbar-track { background: hsl(var(--muted)); border-left: 2px solid hsl(var(--border)); }
+      ::-webkit-scrollbar-thumb { background: hsl(var(--foreground)); border: 2px solid hsl(var(--muted)); }
       ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
 
-      /* Grid Pattern */
+      /* Technical Grid Background */
       .bg-grid-pattern {
-        background-size: 20px 20px;
-        background-image: radial-gradient(rgba(0, 0, 0, 0.15) 1.5px, transparent 1.5px);
+        background-size: 40px 40px;
+        background-image: 
+          linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
       }
       .dark .bg-grid-pattern {
-        background-image: radial-gradient(rgba(255, 255, 255, 0.1) 1.5px, transparent 1.5px);
+        background-image: 
+          linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px);
+      }
+
+      /* Safety Hazard Fill for Margins (The "Outside" Pattern) */
+      .bg-hatch-pattern {
+        background-color: rgba(255, 77, 0, 0.05); /* Very light orange tint */
+        background-image: repeating-linear-gradient(
+          -45deg,
+          rgba(255, 77, 0, 0.1) 0,
+          rgba(255, 77, 0, 0.1) 1px,
+          transparent 0,
+          transparent 10px
+        );
+      }
+      .dark .bg-hatch-pattern {
+        background-color: rgba(255, 255, 255, 0.02);
+        background-image: repeating-linear-gradient(
+          -45deg,
+          rgba(255, 255, 255, 0.1) 0,
+          rgba(255, 255, 255, 0.1) 1px,
+          transparent 0,
+          transparent 10px
+        );
+      }
+
+      /* Remove default outlines and use sharp focus rings */
+      *:focus-visible {
+        outline: 2px solid hsl(var(--primary));
+        outline-offset: 2px;
       }
       
-      /* Utilities */
-      .text-xxs { font-size: 0.65rem; line-height: 1rem; }
+      /* --- TIPTAP PROSEMIRROR STYLES --- */
+      .ProseMirror {
+        outline: none;
+        min-height: 60px;
+      }
+      .ProseMirror p.is-editor-empty:first-child::before {
+        color: #adb5bd;
+        content: attr(data-placeholder);
+        float: left;
+        height: 0;
+        pointer-events: none;
+      }
+      .ProseMirror h1 {
+        font-size: 1.8em;
+        font-weight: 800;
+        margin-top: 0.5em;
+        margin-bottom: 0.2em;
+        line-height: 1.1;
+      }
+      .ProseMirror h2 {
+        font-size: 1.4em;
+        font-weight: 700;
+        margin-top: 0.5em;
+        margin-bottom: 0.2em;
+        line-height: 1.1;
+      }
+      .ProseMirror ul, .ProseMirror ol {
+        padding: 0 1rem;
+        margin: 0.5rem 0;
+      }
+      .ProseMirror ul { list-style-type: disc; }
+      .ProseMirror ol { list-style-type: decimal; }
+      .ProseMirror blockquote {
+        border-left: 3px solid rgba(0,0,0,0.1);
+        padding-left: 1rem;
+        font-style: italic;
+      }
+      .dark .ProseMirror blockquote {
+        border-left: 3px solid rgba(255,255,255,0.1);
+      }
     </style>
   <script type="importmap">
 {
   "imports": {
     "react": "https://aistudiocdn.com/react@^19.2.0",
     "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
     "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
     "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
     "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^2.3.0",
@@ -193,7 +271,11 @@
     "@specious/htmlflow": "https://aistudiocdn.com/@specious/htmlflow@^1.1.0",
     "gsap": "https://aistudiocdn.com/gsap@^3.12.5",
     "gsap/Flip": "https://aistudiocdn.com/gsap@^3.12.5/Flip",
-    "gsap/": "https://aistudiocdn.com/gsap@^3.13.0/"
+    "gsap/": "https://aistudiocdn.com/gsap@^3.13.0/",
+    "@supabase/supabase-js": "https://esm.sh/@supabase/supabase-js@2",
+    "@tiptap/react": "https://esm.sh/@tiptap/react@2.2.4?external=react,react-dom",
+    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@2.2.4?external=react,react-dom",
+    "@tiptap/extension-placeholder": "https://esm.sh/@tiptap/extension-placeholder@2.2.4?external=react,react-dom"
   }
 }
 </script>

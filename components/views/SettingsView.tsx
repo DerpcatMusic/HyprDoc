@@ -1,8 +1,9 @@
 
+
 import React from 'react';
 import { DocumentSettings, Integration, Party } from '../../types';
 import { Card, Label, Input, Button, Switch, FontPicker, ColorPicker, Tabs, TabsList, TabsTrigger, TabsContent, Badge } from '../ui-components';
-import { CreditCard, Webhook, Database, Link as LinkIcon, CheckCircle2, ArrowUp, ArrowDown, Users, Shuffle } from 'lucide-react';
+import { CreditCard, Webhook, Database, Link as LinkIcon, CheckCircle2, ArrowUp, ArrowDown, Users, Shuffle, AlignLeft, AlignRight, Landmark, QrCode } from 'lucide-react';
 
 interface SettingsViewProps {
     settings?: DocumentSettings;
@@ -11,16 +12,22 @@ interface SettingsViewProps {
     onUpdateParties?: (parties: Party[]) => void;
 }
 
-const INTEGRATIONS_MOCK: Integration[] = [
-    { id: '1', name: 'Salesforce CRM', type: 'crm', connected: false, icon: 'SF' },
-    { id: '2', name: 'HubSpot', type: 'crm', connected: true, icon: 'HS' },
-    { id: '3', name: 'Google Drive', type: 'storage', connected: false, icon: 'GD' },
-    { id: '4', name: 'AWS S3 Bucket', type: 'storage', connected: false, icon: 'S3' },
-];
-
 export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, parties, onUpdateParties }) => {
     const handleChange = (key: keyof DocumentSettings, value: any) => {
         onUpdate({ ...settings, [key]: value });
+    };
+    
+    const handleGatewayChange = (provider: string, key: string, value: any) => {
+        const currentGateways = settings?.paymentGateways || {};
+        const providerConfig = (currentGateways as any)[provider] || {};
+        
+        onUpdate({
+            ...settings,
+            paymentGateways: {
+                ...currentGateways,
+                [provider]: { ...providerConfig, [key]: value }
+            }
+        });
     };
 
     const moveParty = (index: number, direction: 'up' | 'down') => {
@@ -137,16 +144,127 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, 
                                         <Input value={settings?.companyName || ''} onChange={(e) => handleChange('companyName', e.target.value)} placeholder="Acme Corp" />
                                     </div>
                                 </div>
+                                
+                                <div className="pt-4 border-t border-dashed">
+                                     <div className="flex items-center justify-between">
+                                        <div className="space-y-0.5">
+                                            <Label className="text-base flex items-center gap-2">
+                                                {settings?.direction === 'rtl' ? <AlignRight size={16}/> : <AlignLeft size={16}/>} 
+                                                Text Direction
+                                            </Label>
+                                            <p className="text-xs text-muted-foreground">Support for Right-to-Left languages (Arabic, Hebrew).</p>
+                                        </div>
+                                        <div className="flex items-center border rounded-md overflow-hidden">
+                                             <button 
+                                                onClick={() => handleChange('direction', 'ltr')}
+                                                className={`px-3 py-1 text-xs font-bold transition-colors ${settings?.direction !== 'rtl' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+                                             >
+                                                 LTR
+                                             </button>
+                                             <button 
+                                                onClick={() => handleChange('direction', 'rtl')}
+                                                className={`px-3 py-1 text-xs font-bold transition-colors ${settings?.direction === 'rtl' ? 'bg-primary text-white' : 'hover:bg-muted'}`}
+                                             >
+                                                 RTL
+                                             </button>
+                                        </div>
+                                    </div>
+                                </div>
                             </div>
                         </Card>
                     </TabsContent>
 
                     <TabsContent value="integrations">
-                         <div className="grid gap-4">
+                         <div className="grid gap-6">
+                             <div className="p-4 bg-indigo-50 border-l-4 border-indigo-500 text-indigo-900 text-sm">
+                                 Configure your payment providers and webhooks here. These credentials will be used for all Payment blocks in this document.
+                             </div>
+                             
+                             {/* PAYMENT GATEWAYS */}
+                             <h3 className="font-semibold text-lg flex items-center gap-2 mt-4">
+                                 <CreditCard size={20} /> Payment Gateways
+                             </h3>
+                             
+                             <Card className="p-6 space-y-4 border-2">
+                                 <div className="flex items-center gap-2 text-primary font-bold">
+                                     <CreditCard size={18} /> Stripe (Credit Cards)
+                                 </div>
+                                 <div className="space-y-2">
+                                     <Label>Publishable Key</Label>
+                                     <Input 
+                                         value={settings?.paymentGateways?.stripe?.publishableKey || ''} 
+                                         onChange={(e) => handleGatewayChange('stripe', 'publishableKey', e.target.value)} 
+                                         placeholder="pk_test_..."
+                                         className="font-mono text-xs"
+                                     />
+                                 </div>
+                             </Card>
+
+                             <Card className="p-6 space-y-4 border-2">
+                                 <div className="flex items-center gap-2 text-[#00b2e3] font-bold">
+                                     <QrCode size={18} /> Bit (Israel P2P)
+                                 </div>
+                                 <div className="space-y-2">
+                                     <Label>Phone Number</Label>
+                                     <Input 
+                                         value={settings?.paymentGateways?.bit?.phoneNumber || ''} 
+                                         onChange={(e) => handleGatewayChange('bit', 'phoneNumber', e.target.value)} 
+                                         placeholder="+97250..."
+                                         className="font-mono text-xs"
+                                     />
+                                 </div>
+                             </Card>
+
+                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <Card className="p-6 space-y-4">
+                                     <div className="flex items-center gap-2 text-[#9fe870] font-bold">
+                                         <Landmark size={18} fill="#163300" className="text-[#163300]" /> Wise (Transfer)
+                                     </div>
+                                     <div className="space-y-2">
+                                         <Label>Recipient Email</Label>
+                                         <Input value={settings?.paymentGateways?.wise?.recipientEmail || ''} onChange={(e) => handleGatewayChange('wise', 'recipientEmail', e.target.value)} className="text-xs" />
+                                         <Label>IBAN / Account</Label>
+                                         <Input value={settings?.paymentGateways?.wise?.iban || ''} onChange={(e) => handleGatewayChange('wise', 'iban', e.target.value)} className="text-xs" />
+                                     </div>
+                                 </Card>
+
+                                 <Card className="p-6 space-y-4">
+                                     <div className="flex items-center gap-2 text-[#003087] font-bold">
+                                         <span className="italic">PayPal</span>
+                                     </div>
+                                     <div className="space-y-2">
+                                         <Label>Client ID</Label>
+                                         <Input value={settings?.paymentGateways?.paypal?.clientId || ''} onChange={(e) => handleGatewayChange('paypal', 'clientId', e.target.value)} className="font-mono text-xs" />
+                                         <div className="flex items-center gap-2 mt-2">
+                                            <Label className="mb-0">Env:</Label>
+                                            <select 
+                                                className="text-xs border bg-transparent h-6"
+                                                value={settings?.paymentGateways?.paypal?.environment || 'sandbox'}
+                                                onChange={(e) => handleGatewayChange('paypal', 'environment', e.target.value)}
+                                            >
+                                                <option value="sandbox">Sandbox</option>
+                                                <option value="production">Production</option>
+                                            </select>
+                                         </div>
+                                     </div>
+                                 </Card>
+                             </div>
+                             
+                             <Card className="p-6 space-y-4">
+                                 <div className="flex items-center gap-2 text-[#4c0099] font-bold">
+                                     <Landmark size={18} /> GoCardless (Direct Debit)
+                                 </div>
+                                 <div className="space-y-2">
+                                     <Label>Merchant ID</Label>
+                                     <Input value={settings?.paymentGateways?.gocardless?.merchantId || ''} onChange={(e) => handleGatewayChange('gocardless', 'merchantId', e.target.value)} className="font-mono text-xs" />
+                                 </div>
+                             </Card>
+
+                            {/* WEBHOOKS */}
+                            <h3 className="font-semibold text-lg flex items-center gap-2 mt-4">
+                                <Webhook size={20} /> Developer
+                            </h3>
                             <Card className="p-6">
-                                <h3 className="font-semibold text-lg mb-4 flex items-center gap-2">
-                                    <Webhook size={20} /> Webhooks
-                                </h3>
                                 <div className="space-y-2">
                                     <Label>Event Callback URL</Label>
                                     <Input 
@@ -158,28 +276,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, 
                                     <p className="text-[10px] text-muted-foreground">We will send POST requests on 'document.signed' events.</p>
                                 </div>
                             </Card>
-
-                            <h3 className="font-semibold text-lg mt-4">Connected Apps</h3>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                {INTEGRATIONS_MOCK.map(int => (
-                                    <Card key={int.id} className="p-4 flex items-center justify-between">
-                                        <div className="flex items-center gap-3">
-                                            <div className="w-10 h-10 bg-muted rounded-full flex items-center justify-center font-bold text-muted-foreground">
-                                                {int.icon}
-                                            </div>
-                                            <div>
-                                                <p className="font-medium text-sm">{int.name}</p>
-                                                <p className="text-xs text-muted-foreground capitalize">{int.type}</p>
-                                            </div>
-                                        </div>
-                                        {int.connected ? (
-                                            <Badge className="bg-green-100 text-green-700 hover:bg-green-100 border-green-200"><CheckCircle2 size={12} className="mr-1" /> Active</Badge>
-                                        ) : (
-                                            <Button variant="outline" size="sm">Connect</Button>
-                                        )}
-                                    </Card>
-                                ))}
-                            </div>
                          </div>
                     </TabsContent>
                 </Tabs>

@@ -1,13 +1,17 @@
-
-import { DocBlock, BlockType } from '../types';
+import { DocBlock } from '../types';
 
 /**
- * Deep clone blocks to ensure immutability
+ * Deep clone utility - Modernized for performance
  */
-export const cloneTree = (blocks: DocBlock[]): DocBlock[] => JSON.parse(JSON.stringify(blocks));
+export const cloneTree = (blocks: DocBlock[]): DocBlock[] => {
+    if (typeof structuredClone === 'function') {
+        return structuredClone(blocks);
+    }
+    return JSON.parse(JSON.stringify(blocks));
+};
 
 /**
- * Find a block by ID anywhere in the tree
+ * Recursive finder
  */
 export const findNode = (blocks: DocBlock[], id: string): DocBlock | null => {
     for (const block of blocks) {
@@ -16,13 +20,16 @@ export const findNode = (blocks: DocBlock[], id: string): DocBlock | null => {
             const found = findNode(block.children, id);
             if (found) return found;
         }
+        if (block.elseChildren) {
+            const found = findNode(block.elseChildren, id);
+            if (found) return found;
+        }
     }
     return null;
 };
 
 /**
- * Remove a block by ID from the tree.
- * Returns the new tree and the removed block (if found).
+ * Recursive remover
  */
 export const removeNode = (blocks: DocBlock[], id: string): { tree: DocBlock[], removed: DocBlock | null } => {
     let removed: DocBlock | null = null;
@@ -37,162 +44,84 @@ export const removeNode = (blocks: DocBlock[], id: string): { tree: DocBlock[], 
             if (block.children) {
                 block.children = removeRecursive(block.children);
             }
+            if (block.elseChildren) {
+                block.elseChildren = removeRecursive(block.elseChildren);
+            }
             result.push(block);
         }
         return result;
     };
 
-    const newTree = removeRecursive(blocks);
-    return { tree: newTree, removed };
+    const tree = removeRecursive(cloneTree(blocks));
+    return { tree, removed };
 };
 
 /**
- * Insert a block relative to a target ID
+ * Recursive replacement (swap a node with a list of nodes)
+ * Used for "Ungroup" functionality to explode a container in place.
+ */
+export const replaceNode = (blocks: DocBlock[], targetId: string, newNodes: DocBlock[]): DocBlock[] => {
+    const replaceRecursive = (list: DocBlock[]): DocBlock[] => {
+        const result: DocBlock[] = [];
+        for (const block of list) {
+            if (block.id === targetId) {
+                // Insert all new nodes in place of this block
+                result.push(...newNodes);
+            } else {
+                const newBlock = { ...block };
+                if (newBlock.children) newBlock.children = replaceRecursive(newBlock.children);
+                if (newBlock.elseChildren) newBlock.elseChildren = replaceRecursive(newBlock.elseChildren);
+                result.push(newBlock);
+            }
+        }
+        return result;
+    };
+    return replaceRecursive(cloneTree(blocks));
+}
+
+/**
+ * Recursive inserter
+ * Supports before, after, inside (children), inside-false (elseChildren)
  */
 export const insertNode = (
     blocks: DocBlock[], 
     node: DocBlock, 
     targetId: string | undefined, 
-    position: 'before' | 'after' | 'inside'
+    position: 'before' | 'after' | 'inside' | 'inside-false'
 ): DocBlock[] => {
-    // If no target, add to end of root
+    // Append to root if no target
     if (!targetId) {
         return [...blocks, node];
     }
 
-    const insertRecursive = (list: DocBlock[]): boolean => {
-        // Position: Inside (Append to children)
-        if (position === 'inside') {
-            const target = list.find(b => b.id === targetId);
-            if (target) {
-                target.children = target.children || [];
-                target.children.push(node);
-                return true;
-            }
-        } 
-        // Position: Before/After (Sibling)
-        else {
-            const idx = list.findIndex(b => b.id === targetId);
-            if (idx !== -1) {
-                if (position === 'after') list.splice(idx + 1, 0, node);
-                else list.splice(idx, 0, node);
-                return true;
-            }
-        }
-
-        // Recurse
-        for (const block of list) {
-            if (block.children) {
-                if (insertRecursive(block.children)) return true;
-            }
-        }
-        return false;
-    };
-
-    const newTree = cloneTree(blocks);
-    if (!insertRecursive(newTree)) {
-        // Fallback: if target not found, push to root
-        newTree.push(node);
-    }
-    return newTree;
-};
-
-/**
- * Sanitize the tree:
- * 1. Remove empty COLUMNS blocks.
- * 2. AUTO-UNWRAP: If a ROW has only 1 populated COLUMN, dissolve the row and promote children.
- * 3. Prune empty columns to ensure "drag-to-unsplit" feels natural.
- */
-export const sanitizeTree = (blocks: DocBlock[]): DocBlock[] => {
-    const sanitizeRecursive = (list: DocBlock[]): DocBlock[] => {
+    const insertRecursive = (list: DocBlock[]): DocBlock[] => {
         const result: DocBlock[] = [];
         
         for (const block of list) {
-            // Process children first (bottom-up)
-            if (block.children) {
-                block.children = sanitizeRecursive(block.children);
-            }
-
-            // SMART CLEANUP LOGIC
-            if (block.type === BlockType.COLUMNS) {
-                // Filter out columns that are completely empty
-                const populatedColumns = (block.children || []).filter(col => 
-                    col.children && col.children.length > 0
-                );
-
-                if (populatedColumns.length === 0) {
-                    // Entire row is empty, delete it
-                    continue; 
-                }
-
-                if (populatedColumns.length === 1) {
-                    // Auto-Unwrap: Only 1 column left? Dissolve the row.
-                    // Push the children of that single column to the current level
-                    if (populatedColumns[0].children) {
-                        result.push(...populatedColumns[0].children);
-                    }
-                    continue;
-                }
-
-                // If we have valid columns, update the block.
-                // Re-normalize widths if we removed a column
-                if (populatedColumns.length !== (block.children?.length || 0)) {
-                    const newWidth = 100 / populatedColumns.length;
-                    populatedColumns.forEach(c => c.width = newWidth);
+            if (block.id === targetId) {
+                if (position === 'before') result.push(node);
+                
+                // Clone block to avoid mutation issues
+                const newBlock = { ...block };
+                
+                if (position === 'inside') {
+                    newBlock.children = [...(newBlock.children || []), node];
+                } else if (position === 'inside-false') {
+                    newBlock.elseChildren = [...(newBlock.elseChildren || []), node];
                 }
                 
-                block.children = populatedColumns;
+                result.push(newBlock);
+                
+                if (position === 'after') result.push(node);
+            } else {
+                const newBlock = { ...block };
+                if (newBlock.children) newBlock.children = insertRecursive(newBlock.children);
+                if (newBlock.elseChildren) newBlock.elseChildren = insertRecursive(newBlock.elseChildren);
+                result.push(newBlock);
             }
-            
-            result.push(block);
         }
         return result;
     };
-    return sanitizeRecursive(blocks);
-};
 
-/**
- * Logic to split a block into columns
- */
-export const splitBlock = (
-    tree: DocBlock[], 
-    targetBlockId: string, 
-    sourceBlock: DocBlock, 
-    direction: 'left' | 'right'
-): DocBlock[] => {
-    let newTree = cloneTree(tree);
-
-    // Helper to create basic column
-    const createColumn = (children: DocBlock[] = []) => ({
-        id: crypto.randomUUID(),
-        type: BlockType.COLUMN,
-        width: 50,
-        children
-    });
-
-    const replaceRecursive = (list: DocBlock[]): DocBlock[] => {
-        return list.map(b => {
-            if (b.id === targetBlockId) {
-                // We found the target. Replace it with a Row.
-                const colSource = createColumn([sourceBlock]);
-                const colTarget = createColumn([b]); // Wrap existing block
-                
-                const children = direction === 'left' 
-                    ? [colSource, colTarget] 
-                    : [colTarget, colSource];
-
-                return {
-                    id: crypto.randomUUID(),
-                    type: BlockType.COLUMNS,
-                    children
-                };
-            }
-            if (b.children) {
-                return { ...b, children: replaceRecursive(b.children) };
-            }
-            return b;
-        });
-    };
-
-    return replaceRecursive(newTree);
+    return insertRecursive(cloneTree(blocks));
 };

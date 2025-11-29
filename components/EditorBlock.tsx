@@ -1,16 +1,23 @@
 
-import React, { useRef, useEffect, useState } from 'react';
-import { BlockType, DocBlock, FormValues, Party } from '../types';
+
+import React, { useRef, useEffect, useState, useCallback } from 'react';
+import { BlockType, DocBlock, FormValues, Party, DocumentSettings } from '../types';
 import { 
-    Trash2, GripVertical, List, Type, Hash, Mail, Calendar, CheckSquare, 
-    CircleDot, Image as ImageIcon, FileSignature, AlignLeft, Minus, 
-    UploadCloud, Code as CodeIcon, Braces, FileText, Calculator, CreditCard, Video, DollarSign,
-    Settings2, User, MoreHorizontal, Edit2, Columns, LayoutTemplate, FileUp, Repeat, Wand2, Loader2
+    Trash2, Repeat, Type, GripVertical, CheckCircle2, AlertCircle,
+    Plus, PanelLeft, LayoutTemplate, MoveVertical, AlertTriangle, Quote, Info, XOctagon,
+    Minus, Image as ImageIcon, FileUp, FileText, User, Wand2, Loader2, Columns as ColumnsIcon,
+    Bold, Italic, Strikethrough, Heading1, Heading2, List, ListOrdered, CreditCard, Landmark, QrCode, Percent,
+    ExternalLink, ChevronDown, Calendar, Video
 } from 'lucide-react';
-import { Button, cn, SlashMenu } from './ui-components';
+import { Button, cn, SlashMenu, BLOCK_META, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent, Switch, Badge } from './ui-components';
 import { ConditionalZone } from './editor/ConditionalZone';
 import { useDocument } from '../context/DocumentContext';
 import { refineText } from '../services/gemini';
+
+// Tiptap Imports
+import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
 
 interface EditorBlockProps {
   block: DocBlock;
@@ -18,462 +25,779 @@ interface EditorBlockProps {
   isSelected: boolean;
   parties: Party[];
   allBlocks?: DocBlock[]; 
+  docSettings?: DocumentSettings; // Added prop
   onSelect: (id: string) => void;
   onUpdate: (id: string, updates: Partial<DocBlock>) => void;
   onDelete: (id: string) => void;
   onDragStart: (e: React.DragEvent, id: string) => void;
-  onDrop: (e: React.DragEvent, id: string, position?: 'left'|'right'|'top'|'bottom'|'inside') => void;
-  depth?: number;
+  onDragEnd?: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent, id: string, position: 'before'|'after'|'inside'|'inside-false') => void;
   index?: number;
 }
 
-const getBlockCategoryClass = (type: BlockType) => {
-    switch(type) {
-        case BlockType.TEXT: return "bg-zinc-50/50 border-zinc-200 dark:bg-zinc-900/50 dark:border-zinc-800";
-        case BlockType.CHECKBOX:
-        case BlockType.RADIO:
-        case BlockType.SELECT:
-        case BlockType.DATE:
-        case BlockType.EMAIL:
-        case BlockType.NUMBER: return "bg-blue-50/50 border-blue-200 dark:bg-blue-900/10 dark:border-blue-900/30";
-        case BlockType.FORMULA:
-        case BlockType.PAYMENT:
-        case BlockType.CURRENCY: return "bg-purple-50/50 border-purple-200 dark:bg-purple-900/10 dark:border-purple-900/30";
-        case BlockType.SIGNATURE:
-        case BlockType.FILE_UPLOAD:
-        case BlockType.IMAGE:
-        case BlockType.VIDEO:
-        case BlockType.SECTION_BREAK: return "bg-amber-50/50 border-amber-200 dark:bg-amber-900/10 dark:border-amber-900/30";
-        case BlockType.CONDITIONAL:
-        case BlockType.REPEATER: return "bg-rose-50/50 border-rose-200 dark:bg-rose-900/10 dark:border-rose-900/30";
-        default: return "bg-white border-gray-200 dark:bg-zinc-900 dark:border-zinc-700";
+// --- Hooks ---
+const useBlockDrag = (
+    block: DocBlock, 
+    onDragStart: (e: React.DragEvent, id: string) => void, 
+    onDrop: EditorBlockProps['onDrop']
+) => {
+    const [dropPosition, setDropPosition] = useState<'before' | 'after' | 'inside' | null>(null);
+    const elementRef = useRef<HTMLDivElement>(null);
+
+    const handleDragStartInternal = (e: React.DragEvent) => {
+        e.dataTransfer.effectAllowed = 'move';
+        e.stopPropagation(); // Don't drag parent
+        onDragStart(e, block.id);
+    };
+
+    const handleDragOver = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        if (!elementRef.current) return;
+        const rect = elementRef.current.getBoundingClientRect();
+        const y = e.clientY - rect.top;
+        
+        if (['repeater', 'column'].includes(block.type)) {
+            setDropPosition('inside');
+            return;
+        }
+
+        if (y < rect.height * 0.5) setDropPosition('before');
+        else setDropPosition('after');
+    };
+
+    const handleDropInternal = (e: React.DragEvent) => {
+        e.preventDefault(); 
+        e.stopPropagation();
+        if (dropPosition) onDrop(e, block.id, dropPosition);
+        setDropPosition(null);
+    };
+
+    const handleDragLeave = (e: React.DragEvent) => {
+        e.preventDefault();
+        e.stopPropagation();
+        setDropPosition(null);
     }
+
+    return {
+        dropPosition,
+        setDropPosition,
+        elementRef,
+        handleDragStartInternal,
+        handleDragOver,
+        handleDropInternal,
+        handleDragLeave
+    };
 };
 
-export const EditorBlock: React.FC<EditorBlockProps> = ({
-  block, isSelected, parties, allBlocks = [], onSelect, onUpdate, onDelete, onDragStart, onDrop, depth = 0
-}) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const blockRef = useRef<HTMLDivElement>(null);
-  const [dropPosition, setDropPosition] = useState<'top' | 'bottom' | 'left' | 'right' | null>(null);
-  const [isEditingText, setIsEditingText] = useState(false);
-  const [showSlashMenu, setShowSlashMenu] = useState(false);
-  const [slashMenuPos, setSlashMenuPos] = useState({ top: 0, left: 0 });
-  const [slashMenuIndex, setSlashMenuIndex] = useState(0);
-  
-  // AI State
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [showAiMenu, setShowAiMenu] = useState(false);
+// --- Sub-Components ---
 
-  const { addBlock, ungroupRow } = useDocument();
-
-  // Auto-resize
-  useEffect(() => {
-    if (block.type === BlockType.TEXT && textareaRef.current) {
-      textareaRef.current.style.height = "auto";
-      textareaRef.current.style.height = (textareaRef.current.scrollHeight + 2) + "px";
-    }
-  }, [block.content, isEditingText]);
-
-  // Focus Text
-  useEffect(() => {
-    if (isSelected && block.type === BlockType.TEXT) {
-        setIsEditingText(true);
-        if (document.activeElement !== textareaRef.current) {
-            // Small delay ensures selection settles before focus
-            setTimeout(() => textareaRef.current?.focus(), 10);
-        }
-    } else {
-        setIsEditingText(false);
-        setShowSlashMenu(false);
-        setShowAiMenu(false);
-    }
-  }, [isSelected, block.type]);
-
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    if (block.type === BlockType.COLUMN) return;
-    if (!blockRef.current) return;
-    const rect = blockRef.current.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onUpdate, onDelete, onSelect, isSelected, docSettings } = props;
+    const { doc, setMode } = useDocument();
+    const { dropPosition, elementRef, handleDragStartInternal, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
     
-    // Thresholds: 20% for sides
-    if (x < rect.width * 0.2) setDropPosition('left');
-    else if (x > rect.width * 0.8) setDropPosition('right');
-    else if (y < rect.height * 0.5) setDropPosition('top');
-    else setDropPosition('bottom');
-  };
+    // Default safe values
+    const settings = block.paymentSettings || { 
+        amountType: 'fixed', amount: 0, currency: 'USD', enabledProviders: ['stripe'] 
+    };
 
-  const handleDropInternal = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    
-    if (block.type === BlockType.COLUMN || block.type === BlockType.REPEATER) {
-        const newType = e.dataTransfer.getData('application/hyprdoc-new') as BlockType;
-        if (newType) addBlock(newType, block.id, 'inside');
-        else {
-             const existingId = e.dataTransfer.getData('application/hyprdoc-block-id');
-             if(existingId) onDrop(e, block.id, 'inside');
+    const enabledProviders = settings.enabledProviders || [];
+
+    const handleSettingChange = (key: string, value: any) => {
+        onUpdate(block.id, { 
+            paymentSettings: { ...settings, [key]: value } 
+        });
+    };
+
+    const toggleProvider = (providerId: string, enabled: boolean) => {
+        let newProviders = [...enabledProviders];
+        if (enabled) {
+            if (!newProviders.includes(providerId)) newProviders.push(providerId);
+        } else {
+            newProviders = newProviders.filter(p => p !== providerId);
         }
-    } else if (dropPosition) {
-        onDrop(e, block.id, dropPosition);
-    }
-    setDropPosition(null);
-  };
+        onUpdate(block.id, { 
+            paymentSettings: { ...settings, enabledProviders: newProviders } 
+        });
+    };
+    
+    // Check global configuration status
+    const isConfigured = (provider: string) => {
+        const gateways = docSettings?.paymentGateways as any;
+        if (!gateways) return false;
+        const config = gateways[provider];
+        if (!config) return false;
+        
+        // Basic check for required keys
+        if (provider === 'stripe') return !!config.publishableKey;
+        if (provider === 'bit') return !!config.phoneNumber;
+        if (provider === 'wise') return !!config.recipientEmail;
+        if (provider === 'paypal') return !!config.clientId;
+        if (provider === 'gocardless') return !!config.merchantId;
+        return false;
+    };
 
-  const handleColumnResize = (e: React.MouseEvent, index: number) => {
-      e.preventDefault(); e.stopPropagation();
-      const startX = e.clientX;
-      const parentWidth = blockRef.current?.offsetWidth || 1;
-      const leftCol = block.children![index];
-      const rightCol = block.children![index + 1];
-      const startLeft = leftCol.width || 50;
-      const startRight = rightCol.width || 50;
+    const numericVariables = doc.variables.filter(v => !isNaN(parseFloat(v.value)));
 
-      const onMove = (mv: MouseEvent) => {
-          const delta = ((mv.clientX - startX) / parentWidth) * 100;
-          onUpdate(leftCol.id, { width: Math.max(5, startLeft + delta) });
-          onUpdate(rightCol.id, { width: Math.max(5, startRight - delta) });
-      };
-      const onUp = () => {
-          window.removeEventListener('mousemove', onMove);
-          window.removeEventListener('mouseup', onUp);
-      };
-      window.addEventListener('mousemove', onMove);
-      window.addEventListener('mouseup', onUp);
-  };
-
-  const handleSlashSelect = (actionId: string) => {
-      // Map slash commands to BlockTypes
-      let typeToAdd: BlockType | null = null;
-      switch(actionId) {
-          case 'text': typeToAdd = BlockType.TEXT; break;
-          case 'h1': 
-              onUpdate(block.id, { content: '# ' + (block.content || '').replace('/', '') }); 
-              setShowSlashMenu(false);
-              return;
-          case 'h2': 
-              onUpdate(block.id, { content: '## ' + (block.content || '').replace('/', '') }); 
-              setShowSlashMenu(false);
-              return;
-          case 'input': typeToAdd = BlockType.INPUT; break;
-          case 'number': typeToAdd = BlockType.NUMBER; break;
-          case 'signature': typeToAdd = BlockType.SIGNATURE; break;
-          case 'date': typeToAdd = BlockType.DATE; break;
-          case 'section_break': typeToAdd = BlockType.SECTION_BREAK; break;
-      }
-
-      if (typeToAdd) {
-          // If current block is empty text, replace it. Otherwise add after.
-          if (block.type === BlockType.TEXT && (!block.content || block.content === '/')) {
-              addBlock(typeToAdd, block.id, 'after');
-              onDelete(block.id);
-          } else {
-              // Remove the slash from content before adding new block
-              const newContent = (block.content || '').replace('/', '');
-              onUpdate(block.id, { content: newContent });
-              addBlock(typeToAdd, block.id, 'after');
-          }
-      }
-      setShowSlashMenu(false);
-  };
-
-  const handleAiAction = async (action: 'fix_grammar' | 'make_legalese' | 'shorten' | 'expand') => {
-      if (!block.content) return;
-      setIsAiLoading(true);
-      setShowAiMenu(false);
-      try {
-          const newText = await refineText(block.content, action);
-          onUpdate(block.id, { content: newText });
-      } catch(e) {
-          console.error(e);
-      } finally {
-          setIsAiLoading(false);
-      }
-  };
-
-  const renderContent = () => {
-      if (block.type === BlockType.TEXT) {
-          if (isEditingText || isSelected) {
-              return (
-                <div className="relative w-full">
-                    {/* Magic Wand Toolbar */}
-                    {isSelected && block.content && block.content.length > 5 && (
-                         <div className="absolute -top-10 left-0 z-50 flex items-center gap-1 bg-white dark:bg-zinc-800 border-2 border-black dark:border-zinc-700 shadow-sm p-1 animate-in slide-in-from-bottom-2 fade-in">
-                             <Button 
-                                size="xs" 
-                                variant="ghost" 
-                                className="h-6 text-indigo-600 dark:text-indigo-400 gap-1 hover:bg-indigo-50 dark:hover:bg-indigo-900/20"
-                                onClick={() => setShowAiMenu(!showAiMenu)}
-                             >
-                                 {isAiLoading ? <Loader2 size={12} className="animate-spin" /> : <Wand2 size={12} />}
-                                 AI Edit
-                             </Button>
-                             {showAiMenu && (
-                                 <div className="absolute top-full left-0 mt-2 w-40 bg-white dark:bg-zinc-900 border-2 border-black dark:border-zinc-700 shadow-xl flex flex-col p-1 z-[60]">
-                                     <button className="text-left px-2 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => handleAiAction('fix_grammar')}>Fix Grammar</button>
-                                     <button className="text-left px-2 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => handleAiAction('make_legalese')}>Make Legalese</button>
-                                     <button className="text-left px-2 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => handleAiAction('shorten')}>Shorten</button>
-                                     <button className="text-left px-2 py-1.5 text-xs hover:bg-zinc-100 dark:hover:bg-zinc-800" onClick={() => handleAiAction('expand')}>Expand</button>
-                                 </div>
-                             )}
-                         </div>
-                    )}
-
-                    <textarea
-                        ref={textareaRef}
-                        value={block.content || ''}
-                        onChange={(e) => {
-                            onUpdate(block.id, { content: e.target.value });
-                            if (e.target.value.endsWith('/')) {
-                                setShowSlashMenu(true);
-                                const rect = e.target.getBoundingClientRect();
-                                // Position relative to viewport but constrained by container
-                                setSlashMenuPos({ top: rect.bottom + 5, left: rect.left });
-                            } else {
-                                setShowSlashMenu(false);
-                            }
-                        }}
-                        onKeyDown={(e) => {
-                             if (e.key === 'ArrowDown' && showSlashMenu) {
-                                e.preventDefault();
-                                setSlashMenuIndex(prev => (prev + 1) % 8);
-                                return;
-                            }
-                            if (e.key === 'ArrowUp' && showSlashMenu) {
-                                e.preventDefault();
-                                setSlashMenuIndex(prev => (prev - 1 + 8) % 8);
-                                return;
-                            }
-                            if (e.key === 'Enter' && showSlashMenu) {
-                                e.preventDefault();
-                                const items = ['h1', 'h2', 'text', 'input', 'number', 'signature', 'date', 'section_break'];
-                                handleSlashSelect(items[slashMenuIndex]);
-                                return;
-                            }
-                            if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addBlock(BlockType.TEXT, block.id, 'after'); }
-                            if (e.key === 'Backspace' && !block.content) { e.preventDefault(); onDelete(block.id); }
-                            if (e.key === 'Escape') setShowSlashMenu(false);
-                        }}
-                        className="w-full bg-transparent border-none resize-none focus:ring-0 px-1 py-1 text-sm font-sans outline-none dark:text-white"
-                        placeholder="Type '/' for commands..."
-                    />
-                    <SlashMenu 
-                        isOpen={showSlashMenu} 
-                        position={slashMenuPos} 
-                        onSelect={handleSlashSelect} 
-                        onClose={() => setShowSlashMenu(false)}
-                        selectedIndex={slashMenuIndex}
-                    />
-                </div>
-              );
-          }
-          return <div className="w-full px-1 py-1 text-sm whitespace-pre-wrap dark:text-zinc-100 min-h-[24px]">{block.content || <span className="opacity-30">Type '/' to insert block...</span>}</div>;
-      }
-      
-      if (block.type === BlockType.CONDITIONAL) {
-          return (
-              <ConditionalZone 
-                  block={block} 
-                  allBlocks={allBlocks}
-                  formValues={{}}
-                  isSelected={isSelected}
-                  onUpdate={onUpdate}
-                  onDelete={onDelete}
-                  onSelect={onSelect}
-                  onDrop={onDrop}
-                  parties={parties}
-                  onDragStart={onDragStart}
-                  depth={0}
-              />
-          );
-      }
-
-      // Standard Block Visuals
-      const Icon = {
-          [BlockType.INPUT]: FileText,
-          [BlockType.SIGNATURE]: FileSignature,
-          [BlockType.DATE]: Calendar,
-          [BlockType.IMAGE]: ImageIcon,
-          [BlockType.VIDEO]: Video,
-          [BlockType.FILE_UPLOAD]: FileUp,
-          [BlockType.FORMULA]: Calculator,
-          [BlockType.CHECKBOX]: CheckSquare,
-          [BlockType.RADIO]: CircleDot,
-          [BlockType.SELECT]: List,
-          [BlockType.SECTION_BREAK]: Minus,
-          [BlockType.LONG_TEXT]: AlignLeft,
-          [BlockType.NUMBER]: Hash,
-          [BlockType.EMAIL]: Mail,
-          [BlockType.REPEATER]: Repeat,
-      }[block.type] || FileText;
-
-      return (
-          <div className="flex flex-col w-full pointer-events-none">
-               <div className="flex items-center justify-between mb-2 border-b-2 border-black/5 dark:border-white/10 pb-1">
-                    <span className="text-[10px] font-bold uppercase flex items-center gap-1.5 opacity-70">
-                        <Icon size={12} /> {block.type.replace('_', ' ')} {block.required && '*'}
-                    </span>
-               </div>
-               {block.type === BlockType.IMAGE && block.src && (
-                   <img src={block.src} className="h-12 w-auto object-cover opacity-50 mb-1" alt="preview" />
-               )}
-               {block.type === BlockType.SECTION_BREAK && (
-                   <div className="border-t-2 border-dashed border-zinc-300 w-full my-2" />
-               )}
-               <div className="text-sm font-bold truncate p-1.5 border bg-white/50 dark:bg-black/20">
-                    {block.label || (block.type === BlockType.SECTION_BREAK ? "Divider" : "Untitled Field")}
-               </div>
-          </div>
-      );
-  };
-
-  // COLUMNS Special Rendering
-  if (block.type === BlockType.COLUMNS) {
-      return (
-          <div 
-            ref={blockRef}
-            className={cn("relative group mb-4 transition-all", isSelected && "ring-2 ring-indigo-500/20")}
-            onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-            draggable
-            onDragStart={(e) => onDragStart(e, block.id)}
-          >
-               {isSelected && (
-                  <div className="absolute -top-7 right-0 flex border-2 border-black bg-white dark:bg-zinc-800 z-50 scale-90 origin-right">
-                        <button className="px-2 py-0.5 hover:bg-primary text-xs font-bold uppercase" onClick={(e) => { e.stopPropagation(); ungroupRow(block.id); }}>Ungroup</button>
-                        <button className="px-2 py-0.5 hover:bg-red-500 hover:text-white" onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}><Trash2 size={12} /></button>
-                  </div>
-              )}
-              <div className="flex w-full relative min-h-[50px]">
-                  {block.children?.map((col, i) => (
-                      <React.Fragment key={col.id}>
-                          <EditorBlock 
-                            block={col} index={i} isSelected={false} allBlocks={allBlocks} parties={parties} formValues={{}}
-                            onSelect={onSelect} onUpdate={onUpdate} onDelete={onDelete} onDragStart={onDragStart} onDrop={onDrop}
-                          />
-                          {i < (block.children?.length || 0) - 1 && (
-                            <div className="w-4 -ml-2 hover:bg-indigo-500/10 cursor-col-resize z-10 absolute top-0 bottom-0 group/res" style={{ left: `${col.width}%` }} onMouseDown={(e) => handleColumnResize(e, i)}>
-                                <div className="w-[1px] h-full bg-transparent group-hover/res:bg-indigo-50 mx-auto"/>
-                            </div>
-                          )}
-                      </React.Fragment>
-                  ))}
-              </div>
-          </div>
-      );
-  }
-
-  // COLUMN Special Rendering
-  if (block.type === BlockType.COLUMN) {
-      return (
-          <div 
-            style={{ width: `${block.width}%` }} 
-            className="flex flex-col gap-2 min-h-[50px] px-2 relative transition-none"
-            onDragOver={handleDragOver} onDragLeave={() => setDropPosition(null)} onDrop={handleDropInternal}
-          >
-              {(!block.children || block.children.length === 0) && (
-                   <div className="flex-1 border-2 border-dashed border-zinc-200 dark:border-zinc-800 m-1 bg-zinc-50/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                       <span className="text-[9px] uppercase opacity-30">Column</span>
-                   </div>
-              )}
-              {block.children?.map((child, i) => (
-                  <EditorBlock 
-                    key={child.id} block={child} index={i} isSelected={false} allBlocks={allBlocks} parties={parties} formValues={{}}
-                    onSelect={onSelect} onUpdate={onUpdate} onDelete={onDelete} onDragStart={onDragStart} onDrop={onDrop}
-                  />
-              ))}
-          </div>
-      );
-  }
-
-  // REPEATER Special Rendering
-  if (block.type === BlockType.REPEATER) {
-      return (
-          <div 
-             ref={blockRef}
-             className={cn("relative group mb-4 transition-all border-2 border-dashed border-indigo-300 dark:border-indigo-800 p-4 bg-indigo-50/20", isSelected && "ring-2 ring-indigo-500/20")}
+    return (
+        <div ref={elementRef}
+             className={cn("relative group mb-3 border-2 transition-all p-4 bg-white dark:bg-black/20", isSelected ? "border-primary z-20" : "border-black/10 hover:border-black/30")}
              onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable
-             onDragStart={(e) => onDragStart(e, block.id)}
-             onDragOver={handleDragOver}
-             onDragLeave={() => setDropPosition(null)}
-             onDrop={handleDropInternal}
-          >
-               {isSelected && (
-                  <div className="absolute -top-7 right-0 flex border-2 border-black bg-white dark:bg-zinc-800 z-50 scale-90 origin-right">
-                        <div className="px-2 py-0.5 bg-indigo-600 text-white text-xs font-bold uppercase flex items-center gap-1"><Repeat size={10}/> Repeater</div>
-                        <button className="px-2 py-0.5 hover:bg-red-500 hover:text-white" onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}><Trash2 size={12} /></button>
-                  </div>
-              )}
-              <div className="mb-2 text-xs font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-widest flex items-center gap-2">
-                  <Repeat size={14} /> {block.label || "Repeater Group"}
-              </div>
-              <div className="space-y-4">
-                   {(!block.children || block.children.length === 0) && (
-                       <div className="p-6 text-center text-indigo-400/50 text-xs uppercase font-mono border-2 border-dashed border-indigo-200/50">
-                           Drop fields here to create a list template
-                       </div>
-                   )}
+             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={(e) => e.preventDefault()} onDrop={handleDropInternal}>
+             
+             {isSelected && <SelectedHeader label="PAYMENT" onDelete={() => onDelete(block.id)} />}
+
+             <div className="flex items-center gap-2 mb-4 text-xs font-bold font-mono uppercase tracking-widest text-muted-foreground border-b pb-2">
+                 <CreditCard size={14} /> Payment Gateway
+             </div>
+
+             <div className="space-y-4">
+                 <div className="grid grid-cols-2 gap-4">
+                     <div>
+                         <Label>Calculation Mode</Label>
+                         <select 
+                             className="w-full text-xs h-8 border border-input bg-transparent"
+                             value={settings.amountType}
+                             onChange={(e) => handleSettingChange('amountType', e.target.value)}
+                         >
+                             <option value="fixed">Fixed Amount</option>
+                             <option value="variable">From Variable</option>
+                             <option value="percent">Percentage (Deposit)</option>
+                         </select>
+                     </div>
+                     <div>
+                         <Label>Currency</Label>
+                         <select 
+                            className="w-full text-xs h-8 border border-input bg-transparent"
+                            value={settings.currency}
+                            onChange={(e) => handleSettingChange('currency', e.target.value)}
+                         >
+                             {['USD', 'EUR', 'GBP', 'ILS', 'CAD', 'AUD'].map(c => <option key={c} value={c}>{c}</option>)}
+                         </select>
+                     </div>
+                 </div>
+
+                 {settings.amountType === 'fixed' && (
+                     <div>
+                         <Label>Amount</Label>
+                         <Input type="number" className="h-8" value={settings.amount} onChange={(e) => handleSettingChange('amount', parseFloat(e.target.value))} />
+                     </div>
+                 )}
+
+                 {settings.amountType === 'variable' && (
+                     <div>
+                         <Label>Source Variable</Label>
+                         <select 
+                            className="w-full text-xs h-8 border border-input bg-transparent"
+                            value={settings.variableName || ''}
+                            onChange={(e) => handleSettingChange('variableName', e.target.value)}
+                         >
+                             <option value="" disabled>Select Variable...</option>
+                             {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
+                         </select>
+                     </div>
+                 )}
+
+                 {settings.amountType === 'percent' && (
+                     <div className="grid grid-cols-2 gap-4">
+                         <div>
+                             <Label>Percentage %</Label>
+                             <Input type="number" className="h-8" placeholder="10" value={settings.percentage || ''} onChange={(e) => handleSettingChange('percentage', parseFloat(e.target.value))} />
+                         </div>
+                         <div>
+                             <Label>Of Total (Variable)</Label>
+                             <select 
+                                className="w-full text-xs h-8 border border-input bg-transparent"
+                                value={settings.variableName || ''}
+                                onChange={(e) => handleSettingChange('variableName', e.target.value)}
+                             >
+                                 <option value="" disabled>Select Total...</option>
+                                 {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
+                             </select>
+                         </div>
+                     </div>
+                 )}
+
+                 <div className="pt-2">
+                     <Label className="mb-2 block flex items-center justify-between">
+                         <span>Enabled Providers</span>
+                         <button onClick={() => setMode('settings')} className="text-primary text-[9px] hover:underline flex items-center gap-1">
+                             Configure Keys <ExternalLink size={8} />
+                         </button>
+                     </Label>
+                     
+                     <div className="space-y-2">
+                         {['stripe', 'wise', 'bit', 'gocardless', 'paypal'].map(provider => {
+                             const isEnabled = enabledProviders.includes(provider);
+                             const configured = isConfigured(provider);
+                             
+                             return (
+                                 <div key={provider} className={cn("flex items-center justify-between border p-2 text-xs", isEnabled ? "bg-white dark:bg-white/5 border-black/20" : "bg-muted/10 border-transparent")}>
+                                     <div className="flex items-center gap-2">
+                                         <Switch checked={isEnabled} onCheckedChange={(c) => toggleProvider(provider, c)} className="scale-75 origin-left" />
+                                         <span className="uppercase font-bold">{provider}</span>
+                                     </div>
+                                     {isEnabled && (
+                                         configured ? (
+                                             <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-[9px]">
+                                                 <CheckCircle2 size={10} className="mr-1"/> Ready
+                                             </Badge>
+                                         ) : (
+                                             <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 text-[9px]">
+                                                 <AlertTriangle size={10} className="mr-1"/> Missing Config
+                                             </Badge>
+                                         )
+                                     )}
+                                 </div>
+                             );
+                         })}
+                     </div>
+                 </div>
+             </div>
+        </div>
+    );
+}
+
+const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onUpdate, onDelete, onSelect, isSelected } = props;
+    const { ungroupBlock } = useDocument();
+    const { dropPosition, elementRef, handleDragStartInternal, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    
+    const childCount = block.children?.length || 0;
+
+    const addColumn = () => {
+        if (childCount >= 4) return;
+        const newCol = { id: crypto.randomUUID(), type: BlockType.COLUMN, width: 50, children: [] };
+        onUpdate(block.id, { children: [...(block.children || []), newCol] });
+    };
+
+    const removeColumn = () => {
+        if (childCount <= 1) return;
+        const newChildren = [...(block.children || [])];
+        newChildren.pop();
+        onUpdate(block.id, { children: newChildren });
+    };
+
+    return (
+        <div ref={elementRef} 
+             className={cn("w-full relative mb-6 group border-2 border-transparent transition-all", isSelected ? "border-primary/50 bg-primary/5 p-2 rounded-sm" : "hover:border-black/10 p-2")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
+             draggable 
+             onDragStart={handleDragStartInternal} 
+             onDragEnd={props.onDragEnd} 
+             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }} // Prevent drop on container itself
+        >
+            {/* Columns Header */}
+            <div className="flex items-center justify-between mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing" onMouseDown={(e) => e.stopPropagation()}>
+                    <span className="bg-black text-white text-[9px] font-bold uppercase px-1.5 py-0.5 flex items-center gap-1">
+                        <ColumnsIcon size={10} /> Columns
+                    </span>
+                    <button onClick={(e) => { e.stopPropagation(); ungroupBlock(block.id); }} className="text-[9px] font-mono hover:text-red-500 uppercase flex items-center gap-1 border border-black/10 px-1 bg-white">
+                        <LayoutTemplate size={10} /> Ungroup
+                    </button>
+                </div>
+                <div className="flex items-center gap-1">
+                    <button onClick={(e) => { e.stopPropagation(); removeColumn(); }} disabled={childCount <= 2} className="w-5 h-5 flex items-center justify-center border border-black/20 bg-white hover:bg-black hover:text-white disabled:opacity-30 transition-colors"><Minus size={10} /></button>
+                    <span className="text-[9px] font-mono font-bold w-4 text-center">{childCount}</span>
+                    <button onClick={(e) => { e.stopPropagation(); addColumn(); }} disabled={childCount >= 4} className="w-5 h-5 flex items-center justify-center border border-black/20 bg-white hover:bg-black hover:text-white disabled:opacity-30 transition-colors"><Plus size={10} /></button>
+                    <div className="w-px h-3 bg-black/20 mx-1" />
+                    <button onClick={() => onDelete(block.id)} className="p-1 hover:text-red-600"><Trash2 size={12}/></button>
+                </div>
+            </div>
+
+            <div className="flex w-full gap-4">
+                {block.children?.map((col, i) => (
+                    <EditorBlock key={col.id} {...props} block={col} index={i} isSelected={false} />
+                ))}
+            </div>
+        </div>
+    );
+};
+
+const ColumnDropZone: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect } = props;
+    const { dropPosition, setDropPosition, elementRef, handleDropInternal, handleDragOver, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
+
+    return (
+        <div 
+            ref={elementRef} 
+            className={cn(
+                "flex-1 flex flex-col gap-3 relative min-h-[100px] p-2 border border-dashed border-black/10 bg-white dark:bg-black/20 transition-colors",
+                dropPosition === 'inside' ? "bg-primary/5 border-primary" : ""
+            )}
+            onDragOver={handleDragOver} 
+            onDragLeave={handleDragLeave}
+            onDrop={handleDropInternal}
+        >
+             {(!block.children?.length) && (
+                 <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 pointer-events-none">
+                     <PanelLeft size={16} className="mb-1" />
+                     <span className="text-[9px] font-mono uppercase tracking-widest">Empty Column</span>
+                 </div>
+             )}
+             {block.children?.map((child, i) => (
+                 <EditorBlock key={child.id} {...props} block={child} index={i} isSelected={false} />
+             ))}
+             {dropPosition === 'inside' && (
+                 <div className="absolute inset-0 border-2 border-primary bg-primary/5 pointer-events-none z-50 flex items-center justify-center">
+                     <span className="text-[10px] font-bold text-primary bg-white px-2 py-1">Drop Here</span>
+                 </div>
+             )}
+        </div>
+    );
+};
+
+const SpacerEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect, onUpdate, onDelete, isSelected } = props;
+    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+
+    return (
+        <div ref={elementRef} 
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
+             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={handleDragOver} onDrop={handleDropInternal}
+             className={cn("group relative flex items-center justify-center cursor-ns-resize", isSelected ? "border border-primary border-dashed" : "hover:bg-muted/10")}
+             style={{ height: Math.max(10, block.height || 32) }}
+        >
+            <div className="absolute left-2 top-1/2 -translate-y-1/2 bg-white border border-black/10 p-1 rounded-sm opacity-0 group-hover:opacity-100 shadow-sm cursor-pointer z-10"
+                 onMouseDown={(e) => {
+                     e.stopPropagation();
+                     const startY = e.clientY;
+                     const startH = block.height || 32;
+                     const handleMouseMove = (ev: MouseEvent) => {
+                         const diff = ev.clientY - startY;
+                         onUpdate(block.id, { height: Math.max(10, startH + diff) });
+                     };
+                     const handleMouseUp = () => {
+                         window.removeEventListener('mousemove', handleMouseMove);
+                         window.removeEventListener('mouseup', handleMouseUp);
+                     };
+                     window.addEventListener('mousemove', handleMouseMove);
+                     window.addEventListener('mouseup', handleMouseUp);
+                 }}
+            >
+                <MoveVertical size={12} />
+            </div>
+            <span className="text-[9px] text-muted-foreground opacity-0 group-hover:opacity-100 select-none">{block.height || 32}px</span>
+            {isSelected && <SelectedHeader label="SPACER" onDelete={() => onDelete(block.id)} />}
+        </div>
+    );
+};
+
+const AlertEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect, onUpdate, onDelete, isSelected } = props;
+    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    
+    const variant = block.variant || 'info';
+    const styles = {
+        info: 'bg-blue-50 border-blue-200 text-blue-800',
+        warning: 'bg-amber-50 border-amber-200 text-amber-800',
+        error: 'bg-red-50 border-red-200 text-red-800',
+        success: 'bg-green-50 border-green-200 text-green-800'
+    };
+    const icons = { info: Info, warning: AlertTriangle, error: XOctagon, success: CheckCircle2 };
+    const Icon = icons[variant];
+
+    return (
+        <div ref={elementRef} className={cn("relative group mb-3", isSelected && "z-20")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
+             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={handleDragOver} onDrop={handleDropInternal}>
+             
+             {isSelected && <SelectedHeader label="ALERT" onDelete={() => onDelete(block.id)} />}
+             
+             <div className={cn("p-4 border-l-4 flex gap-3 items-start", styles[variant], isSelected ? "ring-2 ring-primary ring-offset-2" : "")}>
+                 <Icon size={18} className="mt-0.5 shrink-0" />
+                 <div className="flex-1">
+                     <textarea 
+                        className="w-full bg-transparent border-none resize-none focus:ring-0 p-0 text-sm font-medium outline-none"
+                        value={block.content || ''}
+                        onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+                        placeholder="Type alert message..."
+                     />
+                 </div>
+                 <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                     {['info', 'warning', 'error', 'success'].map(v => (
+                         <button key={v} onClick={() => onUpdate(block.id, { variant: v as any })} className={cn("w-3 h-3 rounded-full border", v===variant ? "border-black scale-125" : "border-transparent opacity-50")} style={{ backgroundColor: v==='info'?'blue':v==='warning'?'orange':v==='error'?'red':'green' }} />
+                     ))}
+                 </div>
+             </div>
+        </div>
+    );
+};
+
+const QuoteEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect, onUpdate, onDelete, isSelected } = props;
+    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+
+    return (
+        <div ref={elementRef} className={cn("relative group mb-3 pl-4 border-l-4 border-black/20 dark:border-white/20", isSelected && "border-primary")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
+             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={handleDragOver} onDrop={handleDropInternal}>
+             
+             <div className="relative">
+                 <Quote size={24} className="absolute -top-2 -left-2 text-muted-foreground/20 -z-10 transform -scale-x-100" />
+                 <textarea 
+                    className="w-full bg-transparent border-none resize-none focus:ring-0 p-0 text-xl font-serif italic text-muted-foreground outline-none min-h-[60px]"
+                    value={block.content || ''}
+                    onChange={(e) => onUpdate(block.id, { content: e.target.value })}
+                    placeholder="Enter quote..."
+                 />
+             </div>
+             
+             {isSelected && (
+                <div className="absolute top-0 right-0">
+                     <button className="p-1 hover:bg-red-600 hover:text-white text-muted-foreground transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}><Trash2 size={12} /></button>
+                </div>
+             )}
+        </div>
+    );
+};
+
+const RepeaterEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect, onDelete, isSelected } = props;
+    const { dropPosition, setDropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
+
+    return (
+        <div ref={elementRef} className={cn("relative mb-6 border-2 bg-white dark:bg-black p-4", isSelected ? "border-primary shadow-lg" : "border-black border-dashed")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
+             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} 
+             onDragOver={handleDragOver} 
+             onDragLeave={handleDragLeave}
+             onDrop={handleDropInternal}>
+              <div className="flex items-center gap-2 mb-2 font-mono text-xs font-bold uppercase border-b pb-2"><Repeat size={14}/> {block.label || "Repeating Group"}</div>
+              <div className="min-h-[60px] space-y-4">
+                   {(!block.children?.length) && <div className="text-center text-[10px] text-muted-foreground uppercase py-4">Drop content here</div>}
                    {block.children?.map((child, i) => (
-                       <EditorBlock 
-                           key={child.id} block={child} index={i} isSelected={false} allBlocks={allBlocks} parties={parties} formValues={{}}
-                           onSelect={onSelect} onUpdate={onUpdate} onDelete={onDelete} onDragStart={onDragStart} onDrop={onDrop}
-                       />
+                       <EditorBlock key={child.id} {...props} block={child} index={i} isSelected={false} />
                    ))}
               </div>
-          </div>
-      )
-  }
-
-  // STANDARD WRAPPER
-  const categoryClass = block.type !== BlockType.TEXT ? getBlockCategoryClass(block.type) : '';
-
-  return (
-    <div 
-      ref={blockRef}
-      className={cn("relative group mb-4 transition-none", isSelected && "z-20")}
-      onDragOver={handleDragOver}
-      onDragLeave={() => setDropPosition(null)}
-      onDrop={handleDropInternal}
-      onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-    >
-        {/* Drop Indicators */}
-        {dropPosition === 'top' && <div className="absolute -top-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none" />}
-        {dropPosition === 'bottom' && <div className="absolute bottom-0 left-0 right-0 h-1 bg-primary z-50 pointer-events-none" />}
-        {dropPosition === 'left' && <div className="absolute top-0 bottom-0 left-0 w-1 bg-primary z-50 pointer-events-none" />}
-        {dropPosition === 'right' && <div className="absolute top-0 bottom-0 right-0 w-1 bg-primary z-50 pointer-events-none" />}
-
-        {/* Toolbar */}
-        {isSelected && block.type !== BlockType.TEXT && (
-            <div className="absolute -top-7 right-0 flex border-2 border-black bg-white dark:bg-zinc-800 z-50 scale-90 origin-right shadow-sm">
-                 <button className="px-2 py-0.5 hover:bg-primary text-xs font-bold uppercase" onClick={(e) => { e.stopPropagation(); onDelete(block.id); }}>
-                    <Trash2 size={12} />
-                 </button>
-            </div>
-        )}
-
-        <div className={cn(
-            "relative transition-none flex flex-col justify-center",
-            block.type !== BlockType.TEXT ? "min-h-[60px] border-2 p-4" : "min-h-[24px] p-1",
-            !isSelected && categoryClass
-        )}
-        style={block.type !== BlockType.TEXT ? {
-            borderColor: isSelected ? 'var(--primary)' : undefined,
-            borderStyle: isSelected ? 'solid' : 'dashed'
-        } : {}}
-        >   
-            <div 
-                className="absolute -left-6 top-0 bottom-0 w-6 cursor-grab active:cursor-grabbing flex items-center justify-center opacity-0 group-hover:opacity-100"
-                draggable
-                onDragStart={(e) => onDragStart(e, block.id)}
-            >
-                <GripVertical size={16} className="text-zinc-400 hover:text-primary" />
-            </div>
-
-            {renderContent()}
+              {dropPosition === 'inside' && <div className="absolute inset-0 bg-primary/10 border-2 border-primary pointer-events-none" />}
         </div>
+    );
+};
+
+// --- TIPTAP TEXT EDITOR ---
+
+const TextEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect, onUpdate, onDelete, isSelected } = props;
+    const { addBlock } = useDocument();
+    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const [showSlashMenu, setShowSlashMenu] = useState(false);
+    const [slashFilter, setSlashFilter] = useState('');
+    const [slashMenuIndex, setSlashMenuIndex] = useState(0);
+    const [slashCoords, setSlashCoords] = useState({ top: 0, left: 0 });
+
+    const editor = useEditor({
+        extensions: [
+            StarterKit,
+            Placeholder.configure({ placeholder: "Type '/' for commands..." }),
+        ],
+        content: block.content || '',
+        onUpdate: ({ editor }) => {
+            const html = editor.getHTML();
+            if (html !== block.content) {
+                // Debounce could be added here
+                onUpdate(block.id, { content: html });
+            }
+
+            // Slash Command Logic
+            const { state } = editor;
+            const selection = state.selection;
+            const textBefore = state.doc.textBetween(Math.max(0, selection.from - 20), selection.from, '\n', '\0');
+            const match = textBefore.match(/\/([a-zA-Z0-9]*)$/);
+
+            if (match) {
+                const coords = editor.view.coordsAtPos(selection.from);
+                setShowSlashMenu(true);
+                setSlashFilter(match[1]);
+                setSlashCoords({ top: coords.bottom + window.scrollY + 10, left: coords.left + window.scrollX });
+            } else {
+                setShowSlashMenu(false);
+            }
+        },
+        editorProps: {
+            handleKeyDown: (view, event) => {
+                if (showSlashMenu) {
+                    const maxIndex = BLOCK_META.filter(b => b.label.toLowerCase().includes(slashFilter.toLowerCase())).length - 1;
+                    if (event.key === 'ArrowDown') {
+                        setSlashMenuIndex(prev => Math.min(prev + 1, maxIndex));
+                        return true;
+                    }
+                    if (event.key === 'ArrowUp') {
+                        setSlashMenuIndex(prev => Math.max(prev - 1, 0));
+                        return true;
+                    }
+                    if (event.key === 'Enter') {
+                        const filtered = BLOCK_META.filter(b => b.label.toLowerCase().includes(slashFilter.toLowerCase()));
+                        if (filtered[slashMenuIndex]) handleSlashSelect(filtered[slashMenuIndex].type);
+                        return true;
+                    }
+                    if (event.key === 'Escape') {
+                        setShowSlashMenu(false);
+                        return true;
+                    }
+                }
+                // Enter to create new block if at end (and not in list)
+                if (event.key === 'Enter' && !event.shiftKey && !showSlashMenu) {
+                     if (event.ctrlKey || event.metaKey) {
+                        addBlock(BlockType.TEXT, block.id, 'after');
+                        return true;
+                     }
+                }
+                return false;
+            }
+        }
+    });
+
+    // Sync content if it changes externally (e.g. AI update)
+    useEffect(() => {
+        if (editor && block.content && editor.getHTML() !== block.content) {
+             // Only update if significantly different to avoid cursor jump
+             if (Math.abs(editor.getHTML().length - block.content.length) > 5) {
+                editor.commands.setContent(block.content);
+             }
+        }
+    }, [block.content, editor]);
+
+    const handleSlashSelect = (actionId: string) => {
+        if (!editor) return;
+        
+        // Delete the slash command text
+        const { state } = editor;
+        const { from } = state.selection;
+        const start = from - (slashFilter.length + 1);
+        editor.commands.deleteRange({ from: start, to: from });
+        
+        setShowSlashMenu(false);
+
+        if (actionId === 'h1') { editor.chain().focus().toggleHeading({ level: 1 }).run(); return; }
+        if (actionId === 'h2') { editor.chain().focus().toggleHeading({ level: 2 }).run(); return; }
+        if (actionId === 'bulletList') { editor.chain().focus().toggleBulletList().run(); return; }
+        
+        // Convert block or add new
+        if (block.type === BlockType.TEXT && !block.content) {
+             onUpdate(block.id, { type: actionId as BlockType });
+        } else {
+             addBlock(actionId as BlockType, block.id, 'after');
+        }
+    };
+
+    return (
+        <div ref={elementRef} 
+             className={cn("relative group mb-1", isSelected ? "z-10" : "z-0")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); editor?.commands.focus(); }}
+             onDragOver={handleDragOver} onDrop={handleDropInternal}
+        >
+            <DropIndicator position={dropPosition} />
+
+             <div className={cn("absolute -left-10 top-0.5 flex items-center gap-1 opacity-0 transition-opacity", (isSelected) ? "opacity-100" : "group-hover:opacity-100")}>
+                 <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground" draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd}><GripVertical size={14} /></div>
+                 <button onClick={() => onDelete(block.id)} className="p-1 text-muted-foreground hover:text-red-500"><Trash2 size={14} /></button>
+             </div>
+             
+             {/* TIPTAP EDITOR */}
+             <div className={cn("prose dark:prose-invert max-w-none text-sm font-serif leading-7 min-h-[24px]", isSelected ? "" : "opacity-90")}>
+                {editor && (
+                    <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex items-center gap-1 p-1 bg-black text-white rounded-sm shadow-xl border border-white/20">
+                        <button onClick={() => editor.chain().focus().toggleBold().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('bold') ? 'bg-white/30 text-white' : '')}><Bold size={12}/></button>
+                        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('italic') ? 'bg-white/30 text-white' : '')}><Italic size={12}/></button>
+                        <button onClick={() => editor.chain().focus().toggleStrike().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('strike') ? 'bg-white/30 text-white' : '')}><Strikethrough size={12}/></button>
+                        <div className="w-px h-3 bg-white/20 mx-1" />
+                        <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('heading', { level: 1 }) ? 'bg-white/30' : '')}><Heading1 size={12}/></button>
+                        <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('heading', { level: 2 }) ? 'bg-white/30' : '')}><Heading2 size={12}/></button>
+                        <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('bulletList') ? 'bg-white/30' : '')}><List size={12}/></button>
+                    </BubbleMenu>
+                )}
+                <EditorContent editor={editor} />
+             </div>
+
+            <SlashMenu 
+              isOpen={showSlashMenu} 
+              filter={slashFilter}
+              position={slashCoords} 
+              onSelect={handleSlashSelect} 
+              onClose={() => setShowSlashMenu(false)} 
+              selectedIndex={slashMenuIndex} 
+            />
+        </div>
+    );
+};
+
+const StandardEditor: React.FC<EditorBlockProps> = (props) => {
+    const { block, onSelect, onUpdate, onDelete, isSelected, parties } = props;
+    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+
+    const Icon = BLOCK_META.find(b => b.type === block.type)?.icon || FileText;
+    const isLayoutBlock = [BlockType.SECTION_BREAK, BlockType.SPACER, BlockType.ALERT, BlockType.QUOTE, BlockType.HTML].includes(block.type);
+    const assignedParty = parties.find(p => p.id === block.assignedToPartyId);
+
+    const handlePartyToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const currentIndex = parties.findIndex(p => p.id === block.assignedToPartyId);
+        const nextParty = currentIndex === -1 ? parties[0] : parties[currentIndex + 1];
+        onUpdate(block.id, { assignedToPartyId: nextParty?.id });
+    };
+
+    const handleRequiredToggle = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        onUpdate(block.id, { required: !block.required });
+    };
+
+    return (
+        <div ref={elementRef} className={cn("relative group mb-3 transition-all", isSelected && "z-20 scale-[1.01]")}
+             onDragOver={handleDragOver} onDrop={handleDropInternal} onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}>
+            
+            <DropIndicator position={dropPosition} />
+            
+            {isSelected && <SelectedHeader label={block.type} onDelete={() => onDelete(block.id)} />}
+
+            <div className={cn("relative border-2 transition-all bg-white dark:bg-black p-0 overflow-hidden", isSelected ? "border-primary shadow-sharp-hover ring-1 ring-primary" : "border-black/10 dark:border-white/20 hover:border-black/40")}>
+                {assignedParty && !isLayoutBlock && (
+                    <div className="absolute top-0 bottom-0 left-0 w-1 z-10" style={{ backgroundColor: assignedParty.color }} />
+                )}
+
+                <div className="flex items-center justify-between px-3 py-2 bg-muted/5 border-b border-black/5 cursor-grab active:cursor-grabbing select-none"
+                    draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd}>
+                    <div className="flex items-center gap-3 pl-1">
+                        <GripVertical size={12} className="text-muted-foreground/30" />
+                        <Icon size={14} className="text-muted-foreground" />
+                        <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">{block.label || block.type}</span>
+                    </div>
+                    
+                    {!isLayoutBlock && (
+                    <div className="flex items-center gap-2">
+                        <button onClick={handlePartyToggle} className={cn("h-5 px-2 text-[9px] font-bold uppercase border flex items-center gap-1 transition-all", assignedParty ? "bg-white border-transparent shadow-sm" : "bg-transparent border-transparent text-muted-foreground/50 hover:bg-muted")} title={assignedParty ? `Assigned to ${assignedParty.name}` : "Click to assign party"}>
+                            {assignedParty ? <><div className="w-2 h-2 rounded-full" style={{ backgroundColor: assignedParty.color }} />{assignedParty.initials}</> : <div className="flex items-center gap-1"><User size={10} /> Assign</div>}
+                        </button>
+                        <button onClick={handleRequiredToggle} className={cn("h-5 px-2 text-[9px] font-bold uppercase border transition-all flex items-center gap-1", block.required ? "bg-red-50 text-red-600 border-red-200" : "text-muted-foreground/50 border-transparent hover:bg-muted")} title="Toggle Required">
+                            {block.required ? <AlertCircle size={10} /> : <div className="w-2 h-2 rounded-full border border-current opacity-50" />}
+                            {block.required ? "REQ" : "OPT"}
+                        </button>
+                    </div>
+                    )}
+                </div>
+
+                <div className="p-3 pl-4">
+                     {/* Visual Previews */}
+                     {block.label && <div className="text-[10px] font-bold font-mono uppercase tracking-wider text-muted-foreground mb-1.5">{block.label}</div>}
+
+                     {/* Images */}
+                     {block.type === BlockType.IMAGE && (
+                         block.src ? (
+                             <img src={block.src} className="w-full h-32 object-contain bg-muted/10" alt="Preview" />
+                         ) : (
+                             <div className="h-20 bg-muted/10 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                                 <ImageIcon size={20} className="opacity-50"/> <span>Image Placeholder</span>
+                             </div>
+                         )
+                     )}
+
+                     {/* Video */}
+                     {block.type === BlockType.VIDEO && (
+                         <div className="h-20 bg-black/5 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                             <Video size={20} className="opacity-50"/> <span>{block.videoUrl || "Video Embed"}</span>
+                         </div>
+                     )}
+
+                     {/* Signature */}
+                     {block.type === BlockType.SIGNATURE && (
+                         <div className="h-12 bg-muted/5 border-2 border-dashed border-black/10 flex items-end justify-between px-2 pb-1 text-[10px] text-muted-foreground font-mono">
+                             <span>x ____________________</span>
+                             <span>SIGNATURE</span>
+                         </div>
+                     )}
+
+                     {/* Inputs */}
+                     {['input', 'number', 'email', 'long_text'].includes(block.type) && (
+                         <div className={cn("bg-muted/10 border-b-2 border-black/10 w-full flex items-center px-2 text-xs text-muted-foreground", block.type === 'long_text' ? "h-16 items-start py-2" : "h-8")}>
+                            {block.placeholder || (block.type === 'long_text' ? "Type long answer..." : "Type answer...")}
+                         </div>
+                     )}
+
+                     {/* Date */}
+                     {block.type === BlockType.DATE && (
+                         <div className="h-8 bg-muted/10 border-b-2 border-black/10 w-full flex items-center px-2 justify-between">
+                             <span className="text-xs text-muted-foreground">{block.isDateRange ? "Start Date - End Date" : "DD / MM / YYYY"}</span>
+                             <Calendar size={14} className="opacity-50" />
+                         </div>
+                     )}
+
+                     {/* Checkbox & Radio */}
+                     {(block.type === BlockType.CHECKBOX || block.type === BlockType.RADIO) && (
+                         <div className="flex flex-col gap-2">
+                             {(block.options && block.options.length > 0 ? block.options : ['Option 1', 'Option 2']).map((opt, i) => (
+                                 <div key={i} className="flex items-center gap-2">
+                                     {block.type === BlockType.CHECKBOX ? (
+                                         <div className="w-4 h-4 border-2 border-black/20 rounded-none bg-white dark:bg-black" />
+                                     ) : (
+                                         <div className="w-4 h-4 border-2 border-black/20 rounded-full bg-white dark:bg-black" />
+                                     )}
+                                     <span className="text-xs font-mono text-muted-foreground">{opt}</span>
+                                 </div>
+                             ))}
+                         </div>
+                     )}
+
+                     {/* Select */}
+                     {block.type === BlockType.SELECT && (
+                         <div className="h-9 border-2 border-black/10 bg-white dark:bg-black w-full flex items-center justify-between px-3">
+                             <span className="text-xs text-muted-foreground italic">{(block.options && block.options[0]) || "Select option..."}</span>
+                             <ChevronDown size={14} className="opacity-50" />
+                         </div>
+                     )}
+
+                     {/* Section Break */}
+                     {block.type === BlockType.SECTION_BREAK && <hr className="border-t-2 border-black/10 my-2" />}
+
+                     {/* File Upload */}
+                     {block.type === BlockType.FILE_UPLOAD && (
+                         <div className="h-12 bg-muted/5 border-2 border-dashed border-black/10 flex items-center justify-center gap-2 text-xs text-muted-foreground">
+                             <FileUp size={16} className="opacity-50"/> <span>Upload File</span>
+                         </div>
+                     )}
+
+                     {/* Formula */}
+                     {block.type === BlockType.FORMULA && (
+                         <div className="h-8 bg-indigo-50/50 border border-indigo-100 flex items-center px-2 text-xs font-mono text-indigo-800">
+                             ƒx = {block.formula || "Calculate..."}
+                         </div>
+                     )}
+                 </div>
+            </div>
+        </div>
+    );
+};
+
+// --- Helper UI Components ---
+const DropIndicator = ({ position }: { position: string | null }) => {
+    if (position === 'before') return <div className="absolute -top-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none shadow-[0_0_10px_rgba(var(--primary),0.5)]" />;
+    if (position === 'after') return <div className="absolute -bottom-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none shadow-[0_0_10px_rgba(var(--primary),0.5)]" />;
+    return null;
+}
+
+const SelectedHeader = ({ label, onDelete }: { label: string, onDelete: () => void }) => (
+    <div className="absolute -top-3 right-0 flex border-2 border-black dark:border-white bg-white dark:bg-black shadow-sharp z-50 h-6">
+        <div className="px-2 flex items-center bg-black dark:bg-white text-white dark:text-black text-[9px] font-bold font-mono uppercase">{label}</div>
+        <button className="px-2 hover:bg-red-600 hover:text-white dark:text-white transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(); }}><Trash2 size={12} /></button>
     </div>
-  );
+)
+
+// --- Main Component ---
+
+export const EditorBlock: React.FC<EditorBlockProps> = (props) => {
+    const { block } = props;
+
+    switch (block.type) {
+        case BlockType.COLUMNS: return <ColumnsEditor {...props} />;
+        case BlockType.COLUMN: return <ColumnDropZone {...props} />;
+        case BlockType.SPACER: return <SpacerEditor {...props} />;
+        case BlockType.ALERT: return <AlertEditor {...props} />;
+        case BlockType.QUOTE: return <QuoteEditor {...props} />;
+        case BlockType.REPEATER: return <RepeaterEditor {...props} />;
+        case BlockType.TEXT: return <TextEditor {...props} />;
+        case BlockType.PAYMENT: return <PaymentEditor {...props} />;
+        case BlockType.CONDITIONAL: return <ConditionalZone {...props} />;
+        default: return <StandardEditor {...props} />;
+    }
 };

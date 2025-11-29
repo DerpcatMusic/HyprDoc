@@ -1,22 +1,44 @@
-
 import React, { useState } from 'react';
-import { DocBlock, BlockType, Party } from '../types';
-import { Input, Label, Textarea, cn, Button } from './ui-components';
-import { X, HelpCircle, DollarSign, ChevronRight, ChevronLeft, Settings, Image as ImageIcon, Video, Calculator, FileUp, Repeat } from 'lucide-react';
+import { DocBlock, BlockType, Party, Variable } from '../types';
+import { Input, Label, Textarea, cn, Button, Badge } from './ui-components';
+import { X, HelpCircle, DollarSign, ChevronRight, ChevronLeft, Settings, Image as ImageIcon, Video, Calculator, FileUp, Repeat, Plus, Braces, Trash2, Users, CheckCircle2, AlertOctagon, CalendarRange } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '../services/currency';
 import { useDocument } from '../context/DocumentContext';
 
 interface PropertiesPanelProps {
     block: DocBlock | null;
     parties: Party[];
+    variables?: Variable[];
     onUpdate: (id: string, updates: Partial<DocBlock>) => void;
     onDelete: (id: string) => void;
     onClose: () => void;
+    onUpdateVariables?: (vars: Variable[]) => void;
 }
 
-export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties, onUpdate, onDelete, onClose }) => {
+const SectionHeader = ({ title, number }: { title: string, number: string }) => (
+    <div className="flex items-center justify-between bg-black text-white dark:bg-white dark:text-black px-3 py-1.5 mb-4 border-b border-black dark:border-white">
+        <span className="text-[10px] font-black font-mono uppercase tracking-widest">{title}</span>
+        <span className="text-[9px] font-mono font-bold opacity-50">{number}</span>
+    </div>
+);
+
+// Blocks that cannot be assigned to a party or marked as required
+const NON_ASSIGNABLE_BLOCKS = [
+    BlockType.TEXT,
+    BlockType.SECTION_BREAK,
+    BlockType.COLUMNS,
+    BlockType.COLUMN,
+    BlockType.SPACER,
+    BlockType.ALERT,
+    BlockType.QUOTE,
+    BlockType.HTML
+];
+
+export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties, variables = [], onUpdate, onDelete, onClose, onUpdateVariables }) => {
     const [newOption, setNewOption] = useState('');
-    const { doc } = useDocument();
+    const [newVarKey, setNewVarKey] = useState('');
+    const [newVarVal, setNewVarVal] = useState('');
+    const { doc, setDoc } = useDocument();
 
     const handleAddOption = () => {
         if (!block || !newOption.trim()) return;
@@ -32,288 +54,367 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
         onUpdate(block.id, { options: newOptions });
     };
 
+    const handleAddVariable = () => {
+        if(!newVarKey || !onUpdateVariables) return;
+        const newVar = { id: crypto.randomUUID(), key: newVarKey.replace(/\s+/g, ''), value: newVarVal, label: newVarKey };
+        onUpdateVariables([...(doc.variables || []), newVar]);
+        setNewVarKey('');
+        setNewVarVal('');
+    }
+
+    const handleDeleteVariable = (id: string) => {
+        if(!onUpdateVariables) return;
+        onUpdateVariables((doc.variables || []).filter(v => v.id !== id));
+    }
+
     const numericBlocks = doc.blocks.filter(b => b.type === BlockType.NUMBER && block && b.id !== block.id);
 
     return (
         <div 
             className={cn(
-                "h-full z-40 transition-all duration-300 ease-in-out bg-white dark:bg-zinc-950 border-l-2 border-black dark:border-zinc-700 shadow-2xl overflow-hidden",
-                block ? "w-80" : "w-0 border-l-0"
+                "h-full z-40 transition-all duration-300 ease-in-out bg-white dark:bg-black border-l-2 border-black dark:border-white shadow-[-10px_0_20px_-10px_rgba(0,0,0,0.1)] overflow-y-auto overflow-x-hidden flex flex-col",
+                "w-[340px]"
             )}
         >
+            {/* NO BLOCK SELECTED - SHOW GLOBAL VARS */}
+            {!block && (
+                <div className="flex flex-col h-full min-w-[340px]">
+                     <div className="h-14 flex items-center justify-between px-4 border-b-2 border-black dark:border-white bg-white dark:bg-black">
+                         <span className="font-bold font-mono text-xs uppercase tracking-widest flex items-center gap-2">
+                             <Braces size={14} /> Global Variables
+                         </span>
+                         <button onClick={onClose} className="hover:bg-black hover:text-white p-1 transition-colors"><X size={16} /></button>
+                     </div>
+                    
+                    <div className="p-0 space-y-8 flex-1 overflow-y-auto">
+                        <div className="p-4 bg-muted/10 border-b border-black/10">
+                             <div className="text-[10px] font-mono leading-relaxed opacity-70">
+                                Define global placeholders like <b>{`{{ClientName}}`}</b>. Use them in any Text Block to auto-fill data.
+                            </div>
+                        </div>
+
+                        <div className="px-4">
+                            <SectionHeader title="System Variables" number="01" />
+                            <div className="space-y-4">
+                                {doc.variables?.map(v => (
+                                    <div key={v.id} className="group p-3 border-2 border-black dark:border-white flex flex-col gap-2 relative hover:shadow-sharp transition-all bg-white dark:bg-black">
+                                        <div className="flex justify-between items-center">
+                                            <span className="font-bold font-mono text-xs text-primary">{`{{${v.key}}}`}</span>
+                                            <button onClick={() => handleDeleteVariable(v.id)} className="opacity-0 group-hover:opacity-100 transition-opacity text-destructive hover:bg-destructive hover:text-white p-1"><Trash2 size={12}/></button>
+                                        </div>
+                                        <Input 
+                                            className="h-7 text-xs bg-transparent border-0 border-b border-black/20 focus:border-black rounded-none px-0" 
+                                            value={v.value} 
+                                            onChange={(e) => {
+                                                const newVars = doc.variables.map(vv => vv.id === v.id ? { ...vv, value: e.target.value } : vv);
+                                                if(onUpdateVariables) onUpdateVariables(newVars);
+                                            }} 
+                                        />
+                                    </div>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="px-4 pb-8">
+                            <SectionHeader title="New Definition" number="02" />
+                            <div className="grid grid-cols-2 gap-2 mb-2">
+                                <Input 
+                                    className="h-8 text-xs font-mono" 
+                                    placeholder="Key" 
+                                    value={newVarKey}
+                                    onChange={(e) => setNewVarKey(e.target.value)}
+                                />
+                                <Input 
+                                    className="h-8 text-xs" 
+                                    placeholder="Value" 
+                                    value={newVarVal}
+                                    onChange={(e) => setNewVarVal(e.target.value)}
+                                />
+                            </div>
+                            <Button size="sm" onClick={handleAddVariable} disabled={!newVarKey} className="w-full">Create Variable</Button>
+                        </div>
+                    </div>
+                </div>
+            )}
+
             {block && (
-                <div className="flex flex-col h-full min-w-[320px]">
-                    <div className="h-12 border-b-2 border-black dark:border-zinc-700 flex items-center justify-between px-4 bg-muted/10 dark:bg-zinc-900">
-                        <span className="font-bold font-mono text-xs uppercase flex-1 truncate text-foreground dark:text-white flex items-center gap-2">
-                           <Settings size={14} /> {block.type.replace('_', ' ')}
-                        </span>
+                <div className="flex flex-col h-full min-w-[340px]">
+                     {/* Header */}
+                    <div className="h-14 flex items-center justify-between px-4 border-b-2 border-black dark:border-white bg-white dark:bg-black sticky top-0 z-20">
+                         <div className="flex items-center gap-2">
+                             <div className="w-6 h-6 bg-black text-white flex items-center justify-center font-bold text-[10px] font-mono">
+                                 {block.type.substring(0,2).toUpperCase()}
+                             </div>
+                             <div className="flex flex-col">
+                                 <span className="font-black font-mono text-xs uppercase tracking-widest leading-none">
+                                    {block.type.replace('_', ' ')}
+                                 </span>
+                                 <span className="text-[9px] font-mono text-muted-foreground">ID: {block.id.slice(0,6)}</span>
+                             </div>
+                         </div>
                         <button 
-                            className="h-6 w-6 flex items-center justify-center hover:bg-red-500 hover:text-white transition-colors" 
+                            className="h-8 w-8 flex items-center justify-center hover:bg-black hover:text-white dark:hover:bg-white dark:hover:text-black transition-colors border border-transparent hover:border-current" 
                             onClick={onClose}
                         >
                             <X size={16} />
                         </button>
                     </div>
 
-                    <div className="flex-1 overflow-y-auto p-6 space-y-6">
-                         {/* Variable ID */}
-                        <div className="space-y-1 p-3 bg-zinc-50 dark:bg-zinc-900 rounded-none border border-zinc-200 dark:border-zinc-700 text-xs font-mono text-muted-foreground break-all">
-                            <div className="flex justify-between items-center mb-1">
-                                <span className="font-bold text-black dark:text-white">ID</span>
-                                <div title="Use this key in formulas or integrations" className="cursor-help">
-                                    <HelpCircle size={12} />
+                    <div className="flex-1 overflow-y-auto">
+                        
+                         {/* ASSIGNMENT & LOGIC SECTION - Hidden for Layout blocks */}
+                        {!NON_ASSIGNABLE_BLOCKS.includes(block.type) && (
+                        <div className="p-6 pb-2">
+                            <SectionHeader title="Responsibility" number="00" />
+                            
+                            {/* Party Assignment */}
+                            <div className="space-y-3 mb-6">
+                                <Label className="text-xs">Assigned Party</Label>
+                                <div className="grid grid-cols-1 gap-2">
+                                    {parties.map(party => {
+                                        const isAssigned = block.assignedToPartyId === party.id;
+                                        return (
+                                            <button
+                                                key={party.id}
+                                                onClick={() => onUpdate(block.id, { assignedToPartyId: isAssigned ? undefined : party.id })}
+                                                className={cn(
+                                                    "flex items-center justify-between p-2 border-2 transition-all text-xs font-mono font-bold uppercase",
+                                                    isAssigned 
+                                                        ? "bg-white dark:bg-black shadow-sharp translate-x-1" 
+                                                        : "bg-transparent border-transparent hover:border-black/10 text-muted-foreground grayscale"
+                                                )}
+                                                style={{ borderColor: isAssigned ? party.color : undefined }}
+                                            >
+                                                <div className="flex items-center gap-2">
+                                                    <div className="w-3 h-3 rounded-none" style={{ backgroundColor: party.color }} />
+                                                    <span style={{ color: isAssigned ? party.color : undefined }}>{party.name}</span>
+                                                </div>
+                                                {isAssigned && <CheckCircle2 size={14} style={{ color: party.color }} />}
+                                            </button>
+                                        )
+                                    })}
                                 </div>
                             </div>
-                            <div className="text-foreground dark:text-zinc-400 select-all">{block.variableName}</div>
-                        </div>
 
-                        {/* Basic Props */}
-                        <div className="space-y-4">
-                            {/* Generic Label - used by almost all types except purely visual ones */}
-                            {block.type !== BlockType.TEXT && block.type !== BlockType.HTML && block.type !== BlockType.SECTION_BREAK && (
-                                <div className="space-y-2">
-                                    <Label>Label</Label>
-                                    <Input 
-                                        className="dark:bg-black dark:border-zinc-700 font-sans" 
-                                        value={block.label || ''} 
-                                        onChange={(e) => onUpdate(block.id, { label: e.target.value })} 
-                                    />
+                            {/* Required Toggle */}
+                            <div className="flex items-center justify-between border-2 border-black dark:border-white p-3 bg-muted/5">
+                                <div className="flex items-center gap-2">
+                                    <AlertOctagon size={16} className={block.required ? "text-red-600" : "text-muted-foreground"} />
+                                    <span className="text-xs font-bold font-mono uppercase">Mandatory Field</span>
                                 </div>
-                            )}
-
-                            {/* REPEATER HINT */}
-                            {block.type === BlockType.REPEATER && (
-                                <div className="p-3 bg-indigo-50 border border-indigo-200 text-indigo-800 text-xs rounded dark:bg-indigo-900/20 dark:border-indigo-800 dark:text-indigo-300">
-                                    <div className="font-bold flex items-center gap-2 mb-1"><Repeat size={12}/> Repeater Group</div>
-                                    <p className="opacity-80">Drag and drop other fields INSIDE this block in the editor to define the repeating row template.</p>
-                                </div>
-                            )}
-                            
-                            {/* Placeholder */}
-                            {(block.type === BlockType.INPUT || block.type === BlockType.LONG_TEXT || block.type === BlockType.EMAIL || block.type === BlockType.NUMBER) && (
-                                <div className="space-y-2">
-                                    <Label>Placeholder</Label>
-                                    <Input 
-                                        className="dark:bg-black dark:border-zinc-700 font-sans" 
-                                        value={block.placeholder || ''} 
-                                        onChange={(e) => onUpdate(block.id, { placeholder: e.target.value })} 
-                                    />
-                                </div>
-                            )}
-
-                             {/* Numeric Constraints */}
-                            {block.type === BlockType.NUMBER && (
-                                <div className="grid grid-cols-3 gap-2">
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px]">Min</Label>
-                                        <Input type="number" className="h-7 text-xs" value={block.min ?? ''} onChange={(e) => onUpdate(block.id, { min: parseFloat(e.target.value) })} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px]">Max</Label>
-                                        <Input type="number" className="h-7 text-xs" value={block.max ?? ''} onChange={(e) => onUpdate(block.id, { max: parseFloat(e.target.value) })} />
-                                    </div>
-                                    <div className="space-y-1">
-                                        <Label className="text-[10px]">Step</Label>
-                                        <Input type="number" className="h-7 text-xs" value={block.step ?? ''} onChange={(e) => onUpdate(block.id, { step: parseFloat(e.target.value) })} />
-                                    </div>
-                                </div>
-                            )}
-
-                             {/* Media Config */}
-                            {block.type === BlockType.IMAGE && (
-                                <div className="space-y-4 pt-2 border-t border-dashed border-zinc-200">
-                                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground"><ImageIcon size={12}/> Image Source</h4>
-                                    <div className="space-y-2">
-                                        <Label>Image URL</Label>
-                                        <Input value={block.src || ''} onChange={(e) => onUpdate(block.id, { src: e.target.value })} placeholder="https://..." />
-                                    </div>
-                                    <div className="space-y-2">
-                                        <Label>Alt Text</Label>
-                                        <Input value={block.altText || ''} onChange={(e) => onUpdate(block.id, { altText: e.target.value })} placeholder="Description..." />
-                                    </div>
-                                </div>
-                            )}
-                            
-                            {block.type === BlockType.VIDEO && (
-                                <div className="space-y-4 pt-2 border-t border-dashed border-zinc-200">
-                                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground"><Video size={12}/> Video Config</h4>
-                                    <div className="space-y-2">
-                                        <Label>Video URL</Label>
-                                        <Input value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="YouTube or Vimeo URL" />
-                                    </div>
-                                </div>
-                            )}
-
-                             {/* File Upload Config */}
-                            {block.type === BlockType.FILE_UPLOAD && (
-                                <div className="space-y-4 pt-2 border-t border-dashed border-zinc-200">
-                                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground"><FileUp size={12}/> Constraints</h4>
-                                    <div className="space-y-2">
-                                        <Label>Accepted Types</Label>
-                                        <Input value={block.acceptedFileTypes || ''} onChange={(e) => onUpdate(block.id, { acceptedFileTypes: e.target.value })} placeholder=".pdf, .jpg, image/*" />
-                                        <p className="text-[10px] text-muted-foreground">Comma separated (e.g. .pdf, .docx)</p>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* HTML Content */}
-                            {block.type === BlockType.HTML && (
-                                <div className="space-y-2">
-                                    <Label>Raw HTML Content</Label>
-                                    <Textarea 
-                                        className="font-mono text-xs min-h-[200px]" 
-                                        value={block.content || ''} 
-                                        onChange={(e) => onUpdate(block.id, { content: e.target.value })} 
-                                        placeholder="<div>...</div>"
-                                    />
-                                </div>
-                            )}
-
-                             {/* Formula Config */}
-                            {block.type === BlockType.FORMULA && (
-                                <div className="space-y-4 pt-2 border-t border-dashed border-zinc-200">
-                                    <h4 className="flex items-center gap-2 text-xs font-bold uppercase text-muted-foreground"><Calculator size={12}/> Logic</h4>
-                                    <div className="space-y-2">
-                                        <Label>Expression</Label>
-                                        <Input value={block.formula || ''} onChange={(e) => onUpdate(block.id, { formula: e.target.value })} placeholder="{{qty}} * {{price}}" className="font-mono" />
-                                        <div className="bg-zinc-50 p-2 text-[10px] text-muted-foreground rounded border">
-                                            Use <span className="font-mono text-black">{'{{variableName}}'}</span> to reference other fields.
-                                        </div>
-                                    </div>
-                                </div>
-                            )}
-
-                            {/* Checkbox Config */}
-                            {block.type === BlockType.CHECKBOX && block.options && block.options.length > 0 && (
-                                <div className="flex items-center justify-between pt-2 border-t border-black/10 dark:border-zinc-800 mt-2">
-                                    <Label>Allow Multiple</Label>
+                                <div className="flex items-center gap-2">
                                     <button 
-                                        role="switch"
-                                        aria-checked={block.allowMultiple !== false}
-                                        onClick={() => onUpdate(block.id, { allowMultiple: block.allowMultiple === false ? true : false })}
+                                        onClick={() => onUpdate(block.id, { required: !block.required })}
                                         className={cn(
-                                            "w-10 h-5 border-2 border-black dark:border-zinc-500 transition-colors relative",
-                                            block.allowMultiple !== false ? "bg-primary" : "bg-transparent"
+                                            "w-10 h-5 border-2 border-black dark:border-white relative transition-all",
+                                            block.required ? "bg-red-600" : "bg-transparent"
                                         )}
                                     >
                                         <div className={cn(
-                                            "absolute top-0 bottom-0 w-1/2 bg-black dark:bg-white transition-transform",
-                                            block.allowMultiple !== false ? "right-0" : "left-0"
+                                            "absolute top-0 bottom-0 w-1/2 bg-black dark:bg-white transition-all",
+                                            block.required ? "right-0 bg-white" : "left-0"
                                         )} />
                                     </button>
                                 </div>
-                            )}
-                        </div>
-
-                         {/* Options Editor */}
-                        {(block.type === BlockType.SELECT || block.type === BlockType.RADIO || block.type === BlockType.CHECKBOX) && (
-                            <div className="space-y-3 pt-4 border-t-2 border-black/10 dark:border-zinc-800">
-                                <Label>Options</Label>
-                                <div className="space-y-2">
-                                    {block.options?.map((opt, i) => (
-                                        <div key={i} className="flex items-center gap-2 group">
-                                            <div className="flex-1 text-xs font-mono bg-white dark:bg-black px-2 py-1.5 border border-black/10 dark:border-zinc-700">{opt}</div>
-                                            <button className="text-muted-foreground hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveOption(i)}><X size={14} /></button>
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="flex gap-2">
-                                    <Input 
-                                        value={newOption} 
-                                        onChange={(e) => setNewOption(e.target.value)} 
-                                        placeholder="Add option..." 
-                                        className="dark:bg-black dark:border-zinc-700"
-                                        onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
-                                    />
-                                    <button className="bg-black text-white hover:bg-primary hover:text-black px-3 text-xs font-bold font-mono uppercase border-2 border-transparent hover:border-black dark:bg-white dark:text-black dark:hover:bg-primary" onClick={handleAddOption}>Add</button>
-                                </div>
                             </div>
+                        </div>
                         )}
 
-                         {/* Currency Settings */}
-                        {block.type === BlockType.CURRENCY && (
-                            <div className="space-y-4 pt-4 border-t-2 border-black/10 dark:border-zinc-800">
-                                <h4 className="text-xs font-bold uppercase text-muted-foreground flex items-center gap-2 font-mono">
-                                    <DollarSign size={12} /> Conversion Logic
-                                </h4>
-                                
-                                <div className="grid grid-cols-2 gap-0 border-2 border-black dark:border-zinc-700">
-                                    <button 
-                                        className={cn("text-[10px] font-bold uppercase py-1.5 transition-all", block.currencySettings?.amountType === 'fixed' ? 'bg-primary text-black' : 'bg-transparent hover:bg-black/5 dark:text-white')}
-                                        onClick={() => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, amountType: 'fixed' } })}
-                                    >
-                                        Fixed
-                                    </button>
-                                    <button 
-                                        className={cn("text-[10px] font-bold uppercase py-1.5 border-l-2 border-black dark:border-zinc-700 transition-all", block.currencySettings?.amountType === 'field' ? 'bg-primary text-black' : 'bg-transparent hover:bg-black/5 dark:text-white')}
-                                        onClick={() => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, amountType: 'field' } })}
-                                    >
-                                        From Field
-                                    </button>
-                                </div>
+                        <div className="p-6">
+                            <SectionHeader title="Configuration" number="01" />
 
-                                {block.currencySettings?.amountType === 'fixed' ? (
+                             {/* Ref ID */}
+                             <div className="mb-6 group">
+                                <Label>Variable Reference ID</Label>
+                                <div className="relative">
+                                    <Input 
+                                        className="font-mono text-xs pl-7 border-black/20 focus:border-black bg-transparent"
+                                        value={block.variableName}
+                                        onChange={(e) => onUpdate(block.id, { variableName: e.target.value.replace(/\s+/g, '_') })}
+                                    />
+                                    <span className="absolute left-2 top-2.5 text-muted-foreground font-mono text-[10px]">$</span>
+                                </div>
+                                <div className="text-[9px] text-muted-foreground mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                    Unique identifier for logic and formulas.
+                                </div>
+                            </div>
+
+                            {/* Basic Props */}
+                            <div className="space-y-6">
+                                {/* Generic Label */}
+                                {block.type !== BlockType.TEXT && block.type !== BlockType.HTML && block.type !== BlockType.SECTION_BREAK && (
                                     <div className="space-y-2">
-                                        <Label>Base Amount</Label>
+                                        <Label>Field Label</Label>
                                         <Input 
-                                            type="number" 
-                                            value={block.currencySettings.amount || 0} 
-                                            className="dark:bg-black dark:border-zinc-700"
-                                            onChange={(e) => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, amount: parseFloat(e.target.value) } })}
+                                            className="font-sans font-medium" 
+                                            value={block.label || ''} 
+                                            onChange={(e) => onUpdate(block.id, { label: e.target.value })} 
                                         />
-                                    </div>
-                                ) : (
-                                    <div className="space-y-2">
-                                        <Label>Source Field</Label>
-                                        <select 
-                                            className="w-full h-9 rounded-none border-2 border-black bg-transparent px-3 py-1 text-xs font-mono focus:ring-0 dark:border-zinc-700 dark:bg-black dark:text-white"
-                                            value={block.currencySettings?.sourceFieldId || ''}
-                                            onChange={(e) => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, sourceFieldId: e.target.value } })}
-                                        >
-                                            <option value="">Select Field...</option>
-                                            {numericBlocks.map(b => (
-                                                <option key={b.id} value={b.id}>{b.label || b.variableName}</option>
-                                            ))}
-                                        </select>
-                                        {numericBlocks.length === 0 && <p className="text-[10px] text-amber-600 dark:text-amber-400 font-mono">No number fields available.</p>}
                                     </div>
                                 )}
 
-                                <div className="space-y-2">
-                                    <Label>Base Currency</Label>
-                                    <select 
-                                        className="w-full h-9 rounded-none border-2 border-black bg-transparent px-3 py-1 text-xs font-mono focus:ring-0 dark:border-zinc-700 dark:bg-black dark:text-white"
-                                        value={block.currencySettings?.baseCurrency || 'USD'}
-                                        onChange={(e) => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, baseCurrency: e.target.value } })}
-                                    >
-                                        {SUPPORTED_CURRENCIES.map(c => (
-                                            <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                {/* REPEATER HINT */}
+                                {block.type === BlockType.REPEATER && (
+                                    <div className="p-4 border-l-4 border-black dark:border-white bg-muted/10 text-xs font-mono">
+                                        <p>Drag other fields INSIDE this module to define the loop template.</p>
+                                    </div>
+                                )}
+                                
+                                {/* Placeholder */}
+                                {(block.type === BlockType.INPUT || block.type === BlockType.LONG_TEXT || block.type === BlockType.EMAIL || block.type === BlockType.NUMBER) && (
+                                    <div className="space-y-2">
+                                        <Label>Placeholder</Label>
+                                        <Input 
+                                            className="font-sans text-muted-foreground" 
+                                            value={block.placeholder || ''} 
+                                            onChange={(e) => onUpdate(block.id, { placeholder: e.target.value })} 
+                                        />
+                                    </div>
+                                )}
 
-                                <div className="space-y-2">
-                                    <Label>Target Currency</Label>
-                                    <select 
-                                        className="w-full h-9 rounded-none border-2 border-black bg-transparent px-3 py-1 text-xs font-mono focus:ring-0 dark:border-zinc-700 dark:bg-black dark:text-white"
-                                        value={block.currencySettings?.targetCurrency || 'EUR'}
-                                        onChange={(e) => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, targetCurrency: e.target.value } })}
-                                    >
-                                        {SUPPORTED_CURRENCIES.map(c => (
-                                            <option key={c.code} value={c.code}>{c.flag} {c.code}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                                 {/* Numeric Constraints */}
+                                {block.type === BlockType.NUMBER && (
+                                    <div className="grid grid-cols-3 gap-2">
+                                        <div className="space-y-1">
+                                            <Label>Min</Label>
+                                            <Input type="number" className="h-8 text-xs" value={block.min ?? ''} onChange={(e) => onUpdate(block.id, { min: parseFloat(e.target.value) })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>Max</Label>
+                                            <Input type="number" className="h-8 text-xs" value={block.max ?? ''} onChange={(e) => onUpdate(block.id, { max: parseFloat(e.target.value) })} />
+                                        </div>
+                                        <div className="space-y-1">
+                                            <Label>Step</Label>
+                                            <Input type="number" className="h-8 text-xs" value={block.step ?? ''} onChange={(e) => onUpdate(block.id, { step: parseFloat(e.target.value) })} />
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Date Range Mode Toggle */}
+                                {block.type === BlockType.DATE && (
+                                    <div className="flex items-center justify-between pt-4 border-t border-dashed border-black/20 dark:border-white/20">
+                                        <div className="flex items-center gap-2">
+                                            <CalendarRange size={16} />
+                                            <Label>Range Selection Mode</Label>
+                                        </div>
+                                        <button 
+                                            role="switch"
+                                            aria-checked={!!block.isDateRange}
+                                            onClick={() => onUpdate(block.id, { isDateRange: !block.isDateRange })}
+                                            className={cn(
+                                                "w-10 h-6 border-2 border-black dark:border-white transition-colors relative",
+                                                block.isDateRange ? "bg-primary" : "bg-transparent"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "absolute top-0 bottom-0 w-1/2 bg-black dark:bg-white transition-transform",
+                                                block.isDateRange ? "right-0" : "left-0"
+                                            )} />
+                                        </button>
+                                    </div>
+                                )}
+
+                                 {/* Media Config */}
+                                {block.type === BlockType.IMAGE && (
+                                    <div className="space-y-4 pt-4 border-t border-dashed border-black/20 dark:border-white/20">
+                                        <div className="space-y-2">
+                                            <Label>Source URL</Label>
+                                            <Input value={block.src || ''} onChange={(e) => onUpdate(block.id, { src: e.target.value })} placeholder="https://..." />
+                                        </div>
+                                    </div>
+                                )}
+                                
+                                {block.type === BlockType.VIDEO && (
+                                    <div className="space-y-4 pt-4 border-t border-dashed border-black/20 dark:border-white/20">
+                                        <div className="space-y-2">
+                                            <Label>Video URL</Label>
+                                            <Input value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="YouTube or Vimeo URL" />
+                                        </div>
+                                    </div>
+                                )}
+
+                                 {/* Formula Config */}
+                                {block.type === BlockType.FORMULA && (
+                                    <div className="space-y-4 pt-4 border-t border-dashed border-black/20 dark:border-white/20">
+                                        <div className="space-y-2">
+                                            <Label>Expression</Label>
+                                            <Input value={block.formula || ''} onChange={(e) => onUpdate(block.id, { formula: e.target.value })} placeholder="qty * price" className="font-mono bg-muted/10" />
+                                        </div>
+                                        <div className="space-y-2">
+                                            <Label>Available Variables</Label>
+                                            <div className="flex flex-wrap gap-2">
+                                                {numericBlocks.map(b => (
+                                                    <Badge 
+                                                        key={b.id} 
+                                                        variant="outline" 
+                                                        className="cursor-pointer hover:bg-black hover:text-white"
+                                                        onClick={() => onUpdate(block.id, { formula: (block.formula || '') + ' ' + b.variableName + ' ' })}
+                                                    >
+                                                        {b.variableName}
+                                                    </Badge>
+                                                ))}
+                                                {numericBlocks.length === 0 && <span className="text-[10px] italic opacity-50 font-mono">No numeric fields.</span>}
+                                            </div>
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Checkbox Config */}
+                                {block.type === BlockType.CHECKBOX && block.options && block.options.length > 0 && (
+                                    <div className="flex items-center justify-between pt-4 border-t border-dashed border-black/20 dark:border-white/20">
+                                        <Label>Allow Multiple Selections</Label>
+                                        <button 
+                                            role="switch"
+                                            aria-checked={block.allowMultiple !== false}
+                                            onClick={() => onUpdate(block.id, { allowMultiple: block.allowMultiple === false ? true : false })}
+                                            className={cn(
+                                                "w-10 h-6 border-2 border-black dark:border-white transition-colors relative",
+                                                block.allowMultiple !== false ? "bg-primary" : "bg-transparent"
+                                            )}
+                                        >
+                                            <div className={cn(
+                                                "absolute top-0 bottom-0 w-1/2 bg-black dark:bg-white transition-transform",
+                                                block.allowMultiple !== false ? "right-0" : "left-0"
+                                            )} />
+                                        </button>
+                                    </div>
+                                )}
                             </div>
-                        )}
 
-                        <div className="pt-6 border-t-2 border-black/10 dark:border-zinc-800">
-                            <button 
-                                className="w-full py-3 text-xs font-bold uppercase text-red-600 border-2 border-red-200 hover:bg-red-50 hover:border-red-600 transition-colors dark:border-red-900 dark:text-red-400 dark:hover:bg-red-900/20 font-mono"
-                                onClick={() => onDelete(block.id)}
-                            >
-                                Delete Block
-                            </button>
+                             {/* Options Editor */}
+                            {(block.type === BlockType.SELECT || block.type === BlockType.RADIO || block.type === BlockType.CHECKBOX) && (
+                                <div className="space-y-4 pt-6 mt-6 border-t-2 border-black dark:border-white">
+                                    <Label>Options List</Label>
+                                    <div className="space-y-2">
+                                        {block.options?.map((opt, i) => (
+                                            <div key={i} className="flex items-center gap-2 group">
+                                                <div className="flex-1 text-xs font-mono bg-muted/10 px-3 py-2 border border-black/10 dark:border-white/20">{opt}</div>
+                                                <button className="text-muted-foreground hover:text-destructive opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => handleRemoveOption(i)}><X size={14} /></button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="flex gap-2">
+                                        <Input 
+                                            value={newOption} 
+                                            onChange={(e) => setNewOption(e.target.value)} 
+                                            placeholder="Add new option..." 
+                                            className="text-xs"
+                                            onKeyDown={(e) => e.key === 'Enter' && handleAddOption()}
+                                        />
+                                        <Button size="sm" onClick={handleAddOption}>Add</Button>
+                                    </div>
+                                </div>
+                            )}
+
+                            <div className="pt-12 pb-12">
+                                <Button 
+                                    variant="destructive"
+                                    className="w-full flex items-center justify-center gap-2"
+                                    onClick={() => onDelete(block.id)}
+                                >
+                                    <Trash2 size={14} /> Remove Module
+                                </Button>
+                            </div>
                         </div>
                     </div>
                 </div>

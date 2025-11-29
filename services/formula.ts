@@ -3,11 +3,10 @@
  * SAFE LOGIC ENGINE
  * 
  * Implements "The Safe Logic Rule":
- * A simple Lexer/Parser to evaluate math expressions with variable substitution
- * without using eval() or new Function().
+ * A simple Lexer/Parser to evaluate math expressions with variable substitution.
  * 
  * Supports: +, -, *, /, (, )
- * Variables: {{variableName}}
+ * Variables: Words starting with letters (e.g. price, quantity) or {{variableName}}
  */
 
 type TokenType = 'NUMBER' | 'OPERATOR' | 'LPAREN' | 'RPAREN' | 'VARIABLE';
@@ -41,7 +40,7 @@ const tokenize = (input: string): Token[] => {
             continue;
         }
 
-        // Variables {{name}}
+        // Explicit Variables {{name}}
         if (char === '{' && input[cursor + 1] === '{') {
             cursor += 2;
             let varName = '';
@@ -51,6 +50,17 @@ const tokenize = (input: string): Token[] => {
             }
             cursor += 2; // Skip }}
             tokens.push({ type: 'VARIABLE', value: varName.trim() });
+            continue;
+        }
+
+        // Natural Variables (Words: price, qty, etc.)
+        if (/[a-zA-Z_]/.test(char)) {
+            let word = '';
+            while (cursor < input.length && /[a-zA-Z0-9_]/.test(input[cursor])) {
+                word += input[cursor];
+                cursor++;
+            }
+            tokens.push({ type: 'VARIABLE', value: word });
             continue;
         }
 

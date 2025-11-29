@@ -1,4 +1,5 @@
 
+
 export enum BlockType {
   TEXT = 'text',
   INPUT = 'input', 
@@ -21,7 +22,10 @@ export enum BlockType {
   VIDEO = 'video',
   CURRENCY = 'currency',
   COLUMNS = 'columns',
-  COLUMN = 'column'
+  COLUMN = 'column',
+  SPACER = 'spacer',
+  ALERT = 'alert',
+  QUOTE = 'quote'
 }
 
 export interface Party {
@@ -65,6 +69,9 @@ export interface DocBlock {
   min?: number;
   max?: number;
   step?: number;
+  
+  // Date Constraints
+  isDateRange?: boolean;
 
   // Media Properties
   src?: string;
@@ -76,11 +83,11 @@ export interface DocBlock {
   // Logic
   condition?: {
     variableName: string;
-    operator: 'equals' | 'not_equals' | 'contains' | 'greater_than' | 'less_than';
+    operator: 'equals' | 'not_equals' | 'contains' | 'not_contains' | 'greater_than' | 'less_than' | 'is_set' | 'is_empty' | 'before' | 'after';
     value: string;
   };
   children?: DocBlock[]; 
-  // removed repeaterFields in favor of children for consistency
+  elseChildren?: DocBlock[]; // For False branch
   
   formula?: string; // e.g. "{{field_a}} * {{field_b}}"
   
@@ -91,18 +98,29 @@ export interface DocBlock {
       baseCurrency: string; 
       targetCurrency: string; 
   };
+  
   paymentSettings?: {
-      amountType: 'fixed' | 'variable';
+      amountType: 'fixed' | 'variable' | 'percent';
       amount?: number; 
-      variableName?: string; 
+      percentage?: number; // For deposit logic (e.g. 10%)
+      variableName?: string; // The variable to calculate percentage FROM
       currency?: string;
+      
+      /** @deprecated Use enabledProviders instead */
+      provider?: 'stripe' | 'wise' | 'bit' | 'gocardless' | 'paypal';
+      enabledProviders?: string[]; // List of enabled providers for the recipient to choose from
   };
+
   videoUrl?: string;
   
   // Signature Specific
   signatureId?: string;
   signedAt?: number;
   signatureType?: 'drawn' | 'typed' | 'uploaded';
+
+  // Design Props
+  height?: number; // For Spacer
+  variant?: 'info' | 'warning' | 'error' | 'success'; // For Alert
 }
 
 export interface PageMargins {
@@ -110,6 +128,14 @@ export interface PageMargins {
     bottom: number;
     left: number;
     right: number;
+}
+
+export interface GlobalPaymentSettings {
+    stripe?: { publishableKey: string; connectedAccountId?: string };
+    wise?: { recipientEmail: string; iban?: string; sortCode?: string; accountNumber?: string };
+    bit?: { phoneNumber: string };
+    gocardless?: { merchantId?: string; redirectUrl?: string };
+    paypal?: { clientId?: string; email?: string; environment?: 'sandbox' | 'production' };
 }
 
 export interface DocumentSettings {
@@ -124,6 +150,9 @@ export interface DocumentSettings {
     webhookUrl?: string;
     signingOrder?: 'parallel' | 'sequential';
     margins?: PageMargins;
+    mirrorMargins?: boolean;
+    direction?: 'ltr' | 'rtl';
+    paymentGateways?: GlobalPaymentSettings;
 }
 
 export type EventType = 

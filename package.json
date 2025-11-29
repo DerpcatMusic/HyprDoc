@@ -10,9 +10,9 @@
   },
   "dependencies": {
     "react": "^19.2.0",
+    "react-dom": "^19.2.0",
     "@google/genai": "^1.30.0",
     "react-markdown": "^10.1.0",
-    "react-dom": "^19.2.0",
     "lucide-react": "^0.554.0",
     "clsx": "^2.1.1",
     "tailwind-merge": "^2.3.0",
@@ -32,7 +32,11 @@
     "autocompleter": "^9.3.2",
     "@github/catalyst": "^1.7.0",
     "@specious/htmlflow": "^1.1.0",
-    "gsap": "^3.13.0"
+    "gsap": "^3.13.0",
+    "@supabase/supabase-js": "2",
+    "@tiptap/react": "2.2.4",
+    "@tiptap/starter-kit": "2.2.4",
+    "@tiptap/extension-placeholder": "2.2.4"
   },
   "devDependencies": {
     "@types/node": "^22.14.0",

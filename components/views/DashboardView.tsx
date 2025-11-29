@@ -1,23 +1,39 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { DocumentState, AuditLogEntry } from '../../types';
 import { Card, Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Textarea, Input } from '../ui-components';
-import { FileText, PlusCircle, MoreHorizontal, Clock, CheckCircle2, Eye, PenTool, ShieldCheck, Sparkles, Loader2 } from 'lucide-react';
+import { FileText, PlusCircle, MoreHorizontal, Clock, CheckCircle2, Eye, PenTool, ShieldCheck, Sparkles, Loader2, RefreshCw } from 'lucide-react';
 import { generateAuditTrailPDF } from '../../services/auditTrail';
 import { generateDocumentFromPrompt } from '../../services/gemini';
+import { SupabaseService, DocMeta } from '../../services/supabase';
 
 interface DashboardViewProps {
-    documents: DocumentState[];
+    documents: DocumentState[]; // Keep generic prop type, but we fetch internally for real data
     auditLog?: AuditLogEntry[];
     onCreate: () => void;
     onSelect: (id: string) => void;
     onImport?: (doc: DocumentState) => void;
 }
 
-export const DashboardView: React.FC<DashboardViewProps> = ({ documents, auditLog = [], onCreate, onSelect, onImport }) => {
+export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onCreate, onSelect, onImport }) => {
     const [showAIGenerator, setShowAIGenerator] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    
+    // Local state for fetched docs
+    const [docList, setDocList] = useState<DocMeta[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+
+    const refreshDocs = async () => {
+        setIsLoading(true);
+        const docs = await SupabaseService.listDocuments();
+        setDocList(docs);
+        setIsLoading(false);
+    };
+
+    useEffect(() => {
+        refreshDocs();
+    }, []);
     
     const getStatusColor = (status: string) => {
         switch(status) {
@@ -27,13 +43,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ documents, auditLo
         }
     };
 
-    const handleDownloadAudit = async (e: React.MouseEvent, doc: DocumentState) => {
+    const handleDownloadAudit = async (e: React.MouseEvent, docId: string) => {
         e.stopPropagation();
-        const blob = await generateAuditTrailPDF(doc);
+        // We need full doc for audit trail, fetch it first
+        const fullDoc = await SupabaseService.loadDocument(docId);
+        if(!fullDoc) return;
+
+        const blob = await generateAuditTrailPDF(fullDoc);
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `audit-trail-${doc.id}.pdf`;
+        a.download = `audit-trail-${docId}.pdf`;
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
@@ -75,8 +95,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ documents, auditLo
             <div className="flex-1 overflow-y-auto p-8">
                  <div className="max-w-5xl mx-auto space-y-8">
                    <div className="flex justify-between items-center">
-                       <h1 className="text-3xl font-bold">Dashboard</h1>
+                       <h1 className="text-3xl font-bold flex items-center gap-3">
+                           Dashboard 
+                           {isLoading && <Loader2 size={20} className="animate-spin text-muted-foreground"/>}
+                       </h1>
                        <div className="flex gap-2">
+                            <Button onClick={() => refreshDocs()} variant="ghost" size="icon" title="Refresh List">
+                                <RefreshCw size={16} />
+                            </Button>
                             <Button onClick={() => setShowAIGenerator(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-800 shadow-hypr-sm">
                                 <Sparkles size={16} /> Generate with AI
                             </Button>
@@ -87,15 +113,15 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ documents, auditLo
                    </div>
                    
                    <div className="grid gap-4">
-                       {documents.map((doc, i) => (
-                           <Card key={i} className="p-4 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onSelect(doc.id || 'new')}>
+                       {docList.map((doc, i) => (
+                           <Card key={doc.id} className="p-4 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onSelect(doc.id)}>
                                <div className="flex items-center gap-4">
                                    <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                                        <FileText size={24} />
                                    </div>
                                    <div>
                                        <h3 className="font-semibold text-lg">{doc.title}</h3>
-                                       <p className="text-sm text-muted-foreground">Updated {new Date(doc.updatedAt || Date.now()).toLocaleDateString()}</p>
+                                       <p className="text-sm text-muted-foreground">Updated {new Date(doc.updated_at).toLocaleDateString()}</p>
                                    </div>
                                </div>
                                <div className="flex items-center gap-4">
@@ -104,7 +130,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ documents, auditLo
                                    <Button 
                                       variant="ghost" 
                                       size="sm" 
-                                      onClick={(e) => handleDownloadAudit(e, doc)}
+                                      onClick={(e) => handleDownloadAudit(e, doc.id)}
                                       title="Download Audit Trail"
                                       className="hidden group-hover:flex"
                                    >
@@ -115,7 +141,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ documents, auditLo
                                </div>
                            </Card>
                        ))}
-                       {documents.length === 0 && (
+                       
+                       {!isLoading && docList.length === 0 && (
                            <div className="p-12 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-white/50 dark:bg-zinc-900/50">
                                 <Sparkles size={48} className="mb-4 text-indigo-400 opacity-50" />
                                 <h3 className="text-lg font-bold text-foreground mb-2">Create your first document</h3>

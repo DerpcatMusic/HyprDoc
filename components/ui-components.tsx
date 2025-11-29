@@ -1,12 +1,21 @@
+
 // Re-export primitives
 export * from './ui/primitives';
 
-import React, { useRef, useEffect } from 'react';
+import React, { useRef, useEffect, useState, useMemo } from 'react';
 import { cn, Input as PrimitiveInput } from './ui/primitives';
-import { ChevronDown, Check, Search, Calendar as CalendarIcon, X, Command } from 'lucide-react';
+import { 
+    Type, AlignLeft, Minus, Image as ImageIcon,
+    Settings, List, CheckSquare, Calendar, FileSignature, 
+    Hash, Mail, CircleDot, UploadCloud, FileText,
+    Calculator, CreditCard, Video, DollarSign, Box, Columns, Repeat,
+    LayoutTemplate, Link as LinkIcon, PanelLeft, Plus, MoveVertical, AlertTriangle, Quote,
+    Heading1, Heading2, ListOrdered, Bold, Italic, Strikethrough
+} from 'lucide-react';
+import { BlockType } from '../types';
 
 export const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(({ className, ...props }, ref) => (
-  <div ref={ref} className={cn("rounded-none border-2 border-black bg-card text-card-foreground shadow-sm dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-100", className)} {...props} />
+  <div ref={ref} className={cn("rounded-none border-2 border-black bg-card text-card-foreground shadow-sharp dark:border-white dark:shadow-sharp-dark dark:bg-black", className)} {...props} />
 ));
 Card.displayName = "Card";
 
@@ -17,16 +26,16 @@ export const Switch = ({ checked, onCheckedChange, className, ...props }: { chec
         aria-checked={checked}
         onClick={() => onCheckedChange(!checked)}
         className={cn(
-            "peer inline-flex h-5 w-9 shrink-0 cursor-pointer items-center rounded-full border-2 border-transparent transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed disabled:opacity-50",
-            checked ? "bg-primary" : "bg-zinc-300 dark:bg-zinc-700",
+            "peer inline-flex h-6 w-10 shrink-0 cursor-pointer items-center border-2 border-black transition-colors focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 rounded-none dark:border-white",
+            checked ? "bg-primary" : "bg-transparent",
             className
         )}
         {...props}
     >
         <span
             className={cn(
-                "pointer-events-none block h-4 w-4 rounded-full bg-background shadow-lg ring-0 transition-transform",
-                checked ? "translate-x-4" : "translate-x-0"
+                "pointer-events-none block h-4 w-4 bg-black dark:bg-white shadow-none ring-0 transition-transform rounded-none border border-transparent",
+                checked ? "translate-x-4 bg-white dark:bg-black" : "translate-x-0.5"
             )}
         />
     </button>
@@ -35,7 +44,7 @@ export const Switch = ({ checked, onCheckedChange, className, ...props }: { chec
 export const ColorPicker = ({ value, onChange, className }: { value: string, onChange: (val: string) => void, className?: string }) => {
     return (
         <div className={cn("flex items-center gap-2", className)}>
-            <div className="relative w-8 h-8 rounded-none overflow-hidden border-2 border-black dark:border-white shadow-sm">
+            <div className="relative w-8 h-8 overflow-hidden border-2 border-black dark:border-white shadow-sharp-sm">
                 <input 
                     type="color" 
                     value={value} 
@@ -47,7 +56,7 @@ export const ColorPicker = ({ value, onChange, className }: { value: string, onC
             <PrimitiveInput 
                 value={value} 
                 onChange={(e) => onChange(e.target.value)} 
-                className="w-24 font-mono text-xs uppercase bg-white dark:bg-black text-black dark:text-white"
+                className="w-24 font-mono text-xs uppercase bg-white dark:bg-black text-black dark:text-white border-b-2 border-black dark:border-white h-8"
                 maxLength={7}
             />
         </div>
@@ -67,7 +76,7 @@ export const FontPicker = ({ value, onChange, className }: { value: string, onCh
              <select 
                 value={value} 
                 onChange={(e) => onChange(e.target.value)}
-                className="flex h-9 w-full items-center justify-between rounded-none border-2 border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50 dark:border-zinc-800 dark:bg-zinc-950/50 dark:text-white"
+                className="flex h-9 w-full items-center justify-between rounded-none border-2 border-input bg-transparent px-3 py-2 text-sm shadow-none ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:border-primary disabled:cursor-not-allowed disabled:opacity-50 dark:border-white dark:bg-black dark:text-white"
              >
                  <option value="" disabled>Select font...</option>
                  {fonts.map(f => (
@@ -78,35 +87,65 @@ export const FontPicker = ({ value, onChange, className }: { value: string, onCh
     )
 }
 
-export const Combobox = ({ value, onChange, options = [], placeholder, className }: { value: string, onChange: (val: string) => void, options?: string[], placeholder?: string, className?: string }) => {
-    return (
-        <div className={cn("relative", className)}>
-            <PrimitiveInput 
-                list="combobox-options"
-                value={value}
-                onChange={(e) => onChange(e.target.value)}
-                placeholder={placeholder}
-            />
-            <datalist id="combobox-options">
-                {options.map((opt, i) => (
-                    <option key={i} value={opt} />
-                ))}
-            </datalist>
-        </div>
-    )
-}
+// --- Centralized Block Metadata ---
+
+export const BLOCK_META = [
+    { type: BlockType.TEXT, label: 'Text', icon: Type, keywords: 'paragraph p writing words' },
+    { type: BlockType.INPUT, label: 'Input Field', icon: FileText, keywords: 'form text field entry input' },
+    { type: BlockType.LONG_TEXT, label: 'Long Text', icon: AlignLeft, keywords: 'textarea paragraph long description multiline' },
+    { type: BlockType.NUMBER, label: 'Number', icon: Hash, keywords: 'count quantity math amount integer float' },
+    { type: BlockType.EMAIL, label: 'Email', icon: Mail, keywords: 'contact address mail' },
+    { type: BlockType.DATE, label: 'Date', icon: Calendar, keywords: 'calendar time schedule picker range' },
+    { type: BlockType.CHECKBOX, label: 'Checkbox', icon: CheckSquare, keywords: 'tick multi select option bool check' },
+    { type: BlockType.RADIO, label: 'Single Choice', icon: CircleDot, keywords: 'radio option select single choice' },
+    { type: BlockType.SELECT, label: 'Dropdown', icon: List, keywords: 'select menu list options dropdown' },
+    { type: BlockType.SIGNATURE, label: 'Signature', icon: FileSignature, keywords: 'sign draw autograph contract legal' },
+    { type: BlockType.IMAGE, label: 'Image', icon: ImageIcon, keywords: 'picture photo upload media png jpg' },
+    { type: BlockType.VIDEO, label: 'Video', icon: Video, keywords: 'movie embed youtube media play' },
+    { type: BlockType.FILE_UPLOAD, label: 'File Upload', icon: UploadCloud, keywords: 'attachment document pdf file' },
+    
+    // Layout & Design
+    { type: BlockType.SECTION_BREAK, label: 'Divider', icon: Minus, keywords: 'line break separator hr split' },
+    { type: BlockType.COLUMNS, label: 'Columns', icon: Columns, keywords: 'layout grid split side by side' },
+    { type: BlockType.SPACER, label: 'Spacer', icon: MoveVertical, keywords: 'gap whitespace empty' },
+    { type: BlockType.ALERT, label: 'Alert Box', icon: AlertTriangle, keywords: 'callout info warning error success note' },
+    { type: BlockType.QUOTE, label: 'Blockquote', icon: Quote, keywords: 'citation quote emphasis' },
+
+    // Logic
+    { type: BlockType.REPEATER, label: 'Repeater', icon: Repeat, keywords: 'loop list array collection group repeat' },
+    { type: BlockType.CONDITIONAL, label: 'Conditional', icon: Settings, keywords: 'logic if else branch rules condition' },
+    { type: BlockType.FORMULA, label: 'Formula', icon: Calculator, keywords: 'math calculate expression sum' },
+    { type: BlockType.CURRENCY, label: 'Currency', icon: DollarSign, keywords: 'money exchange rate usd eur cash' },
+    { type: BlockType.PAYMENT, label: 'Payment', icon: CreditCard, keywords: 'charge stripe money buy checkout' },
+    
+    // Tiptap Commands (Shortcuts)
+    { type: 'h1', label: 'Heading 1', icon: Heading1, keywords: 'h1 title header' },
+    { type: 'h2', label: 'Heading 2', icon: Heading2, keywords: 'h2 subtitle' },
+    { type: 'bulletList', label: 'Bullet List', icon: List, keywords: 'ul list bullets' },
+];
 
 // --- Slash Menu ---
 interface SlashMenuProps {
     isOpen: boolean;
+    filter?: string;
     onSelect: (action: string) => void;
     onClose: () => void;
     position?: { top: number, left: number };
     selectedIndex?: number;
 }
 
-export const SlashMenu = ({ isOpen, onSelect, onClose, position, selectedIndex = 0 }: SlashMenuProps) => {
+export const SlashMenu = ({ isOpen, filter = '', onSelect, onClose, position, selectedIndex = 0 }: SlashMenuProps) => {
     const menuRef = useRef<HTMLDivElement>(null);
+
+    // Filter blocks based on user input
+    const filteredItems = useMemo(() => {
+        const query = filter.toLowerCase();
+        if (!query) return BLOCK_META;
+        return BLOCK_META.filter(b => 
+            b.label.toLowerCase().includes(query) || 
+            b.keywords.toLowerCase().includes(query)
+        );
+    }, [filter]);
 
     useEffect(() => {
         const handleClickOutside = (event: MouseEvent) => {
@@ -120,164 +159,138 @@ export const SlashMenu = ({ isOpen, onSelect, onClose, position, selectedIndex =
 
     if (!isOpen) return null;
 
-    const items = [
-        { label: 'Heading 1', id: 'h1', icon: 'H1' },
-        { label: 'Heading 2', id: 'h2', icon: 'H2' },
-        { label: 'Text Block', id: 'text', icon: 'T' },
-        { label: 'Input Field', id: 'input', icon: 'Input' },
-        { label: 'Number Field', id: 'number', icon: '#' },
-        { label: 'Signature', id: 'signature', icon: 'Sig' },
-        { label: 'Date Picker', id: 'date', icon: 'Cal' },
-        { label: 'Divider', id: 'section_break', icon: '—' },
-    ];
+    if (filteredItems.length === 0) {
+        return (
+             <div 
+                ref={menuRef}
+                className="fixed z-[9999] w-56 bg-white dark:bg-black text-foreground border-2 border-black dark:border-white shadow-sharp flex flex-col rounded-none overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+                style={{ top: position?.top, left: position?.left }}
+            >
+                <div className="px-3 py-2 text-xs text-muted-foreground italic font-mono">No blocks match '{filter}'</div>
+            </div>
+        )
+    }
 
     return (
         <div 
             ref={menuRef}
-            className="absolute z-50 w-48 bg-zinc-900 text-white border border-zinc-700 shadow-2xl flex flex-col rounded-sm overflow-hidden animate-in fade-in zoom-in-95 duration-100"
+            className="fixed z-[9999] w-64 bg-white dark:bg-black text-foreground border-2 border-black dark:border-white shadow-sharp flex flex-col rounded-none overflow-hidden max-h-[300px] overflow-y-auto animate-in fade-in zoom-in-95 duration-100"
             style={{ top: position?.top, left: position?.left }}
         >
-            <div className="px-2 py-1.5 text-[10px] font-mono uppercase text-zinc-500 bg-black border-b border-zinc-800">
-                Insert Block
+            <div className="px-3 py-2 text-[10px] font-black font-mono uppercase bg-black text-white dark:bg-white dark:text-black sticky top-0 z-10">
+                {filter ? `Filtering: "${filter}"` : 'Basic Blocks'}
             </div>
-            {items.map((item, index) => (
+            {filteredItems.map((item, index) => (
                 <button
-                    key={item.id}
-                    onClick={() => onSelect(item.id)}
+                    key={item.type}
+                    onClick={() => onSelect(item.type)}
                     className={cn(
-                        "flex items-center gap-2 px-3 py-2 text-sm text-left font-mono transition-colors",
-                        selectedIndex === index ? "bg-primary text-black" : "hover:bg-primary hover:text-black"
+                        "flex items-center gap-3 px-3 py-2 text-sm text-left font-mono transition-colors border-b border-muted last:border-0",
+                        selectedIndex === index ? "bg-primary text-white" : "hover:bg-muted"
                     )}
                 >
-                    <span className="w-4 text-center opacity-50 font-bold text-xs">{item.icon}</span>
-                    {item.label}
+                    <span className={cn(
+                        "w-6 h-6 flex items-center justify-center opacity-70 font-bold text-xs border border-current p-0.5 rounded-sm",
+                        selectedIndex === index ? "border-white" : "border-black/20 dark:border-white/20"
+                    )}>
+                        <item.icon size={14} />
+                    </span>
+                    <div className="flex flex-col">
+                        <span className="leading-none">{item.label}</span>
+                    </div>
                 </button>
             ))}
         </div>
-    )
-}
+    );
+};
 
+// --- Tabs Component ---
+const TabsContext = React.createContext<{ activeTab: string; setActiveTab: (v: string) => void } | null>(null);
 
-// --- Tabs (Context Based) ---
-const TabsContext = React.createContext<{
-  activeTab: string;
-  setActiveTab: (v: string) => void;
-} | null>(null);
-
-export const Tabs = ({ children, defaultValue, className, onValueChange }: { children?: React.ReactNode, defaultValue: string, className?: string, onValueChange?: (value: string) => void }) => {
+export const Tabs = ({ defaultValue, onValueChange, className, children }: { defaultValue: string, onValueChange?: (v: string) => void, className?: string, children?: React.ReactNode }) => {
     const [activeTab, setActiveTab] = React.useState(defaultValue);
-    
     const handleTabChange = (v: string) => {
         setActiveTab(v);
-        onValueChange?.(v);
-    }
-
+        if (onValueChange) onValueChange(v);
+    };
     return (
         <TabsContext.Provider value={{ activeTab, setActiveTab: handleTabChange }}>
-            <div className={className} data-state={activeTab}>
-                {children}
-            </div>
+            <div className={cn("w-full", className)}>{children}</div>
         </TabsContext.Provider>
-    )
-}
+    );
+};
 
-export const TabsList = ({ children, className }: { children?: React.ReactNode, className?: string }) => (
-    <div className={cn("inline-flex h-10 items-center justify-center rounded-none bg-muted p-1 text-muted-foreground w-full justify-start dark:bg-zinc-900", className)}>
+export const TabsList = ({ className, children }: { className?: string, children?: React.ReactNode }) => (
+    <div className={cn("flex items-center border-b border-black dark:border-white overflow-x-auto", className)}>
         {children}
     </div>
-)
+);
 
-export const TabsTrigger = ({ value, children, className }: { value: string, children?: React.ReactNode, className?: string }) => {
-    const context = React.useContext(TabsContext);
-    if (!context) throw new Error("TabsTrigger must be used within Tabs");
-    const { activeTab, setActiveTab } = context;
-    
+export const TabsTrigger = ({ value, className, children }: { value: string, className?: string, children?: React.ReactNode }) => {
+    const ctx = React.useContext(TabsContext);
+    if (!ctx) throw new Error("TabsTrigger must be used within Tabs");
+    const isActive = ctx.activeTab === value;
     return (
         <button
-            onClick={() => setActiveTab(value)}
+            onClick={() => ctx.setActiveTab(value)}
             className={cn(
-                "inline-flex items-center justify-center whitespace-nowrap rounded-none px-3 py-1.5 text-sm font-medium ring-offset-background transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 font-mono uppercase",
-                activeTab === value ? "bg-background text-foreground shadow-sm border-b-2 border-primary dark:text-white" : "hover:bg-background/50 hover:text-foreground dark:text-zinc-400",
+                "px-4 py-2 text-xs font-bold font-mono uppercase tracking-wider border-b-2 transition-colors whitespace-nowrap -mb-[2px]",
+                isActive ? "border-primary text-primary bg-primary/5" : "border-transparent text-muted-foreground hover:text-foreground",
                 className
             )}
-            data-state={activeTab === value ? 'active' : 'inactive'}
         >
             {children}
         </button>
-    )
-}
+    );
+};
 
-export const TabsContent = ({ value, children, className }: { value: string, children?: React.ReactNode, className?: string }) => {
-    const context = React.useContext(TabsContext);
-    if (!context) throw new Error("TabsContent must be used within Tabs");
-    if (context.activeTab !== value) return null;
-    return <div className={cn("mt-4 animate-in fade-in-50 duration-300", className)}>{children}</div>;
-}
-
-export const DatePickerTrigger = ({ value, onChange, label }: { value: string, onChange: (val: string) => void, label?: string }) => {
-    const inputRef = useRef<HTMLInputElement>(null);
-
+export const TabsContent = ({ value, className, children }: { value: string, className?: string, children?: React.ReactNode }) => {
+    const ctx = React.useContext(TabsContext);
+    if (!ctx) throw new Error("TabsContent must be used within Tabs");
+    if (ctx.activeTab !== value) return null;
     return (
-        <div className="relative group cursor-pointer" onClick={() => inputRef.current?.showPicker()}>
-            <input 
-                ref={inputRef}
-                type="date" 
-                value={value} 
-                onChange={(e) => onChange(e.target.value)}
-                className="absolute inset-0 w-full h-full opacity-0 z-10 cursor-pointer" 
-            />
-            <div className={cn(
-                "flex h-9 w-full items-center justify-start rounded-none border-2 border-input bg-transparent px-3 py-2 text-sm shadow-sm dark:border-zinc-700 dark:text-foreground font-mono group-hover:border-primary transition-colors bg-white dark:bg-zinc-900",
-                !value && "text-muted-foreground"
-            )}>
-                <CalendarIcon className="mr-2 h-4 w-4 group-hover:text-primary" />
-                {value ? value : <span>{label || "Pick a date"}</span>}
-            </div>
+        <div className={cn("mt-4 animate-in fade-in duration-200", className)}>
+            {children}
         </div>
-    )
-}
+    );
+};
 
-// --- Tooltip ---
-export const TooltipProvider = ({ children }: { children: React.ReactNode }) => <div className="relative">{children}</div>;
-
-export const Tooltip = ({ children }: { children: React.ReactNode }) => <div className="relative inline-block">{children}</div>;
-
-export const TooltipTrigger = ({ children, className, style, ...props }: { children: React.ReactNode, className?: string, style?: React.CSSProperties, [key:string]: any }) => (
-    <span className={cn("cursor-help underline decoration-dotted underline-offset-4 decoration-primary/50", className)} style={style} {...props}>{children}</span>
-);
-
-export const TooltipContent = ({ children, className }: { children: React.ReactNode, className?: string }) => (
-    <div className={cn("absolute bottom-full left-1/2 -translate-x-1/2 mb-2 w-max max-w-xs p-2 text-xs text-popover-foreground bg-popover border-2 border-black rounded-none shadow-hypr z-[1000] dark:border-zinc-700 font-mono dark:bg-zinc-900 dark:text-white", className)}>
-        {children}
-        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-black dark:border-t-zinc-700"></div>
-    </div>
-);
-
-
-// --- Dialog/Modal ---
-export const Dialog = ({ open, onOpenChange, children, className }: { open: boolean, onOpenChange: (o: boolean) => void, children?: React.ReactNode, className?: string }) => {
+// --- Dialog Component ---
+export const Dialog = ({ open, onOpenChange, children }: { open: boolean, onOpenChange: (open: boolean) => void, children?: React.ReactNode }) => {
     if (!open) return null;
     return (
-        <div className="fixed inset-0 z-50 bg-black/80 backdrop-blur-sm flex items-center justify-center p-4 animate-in fade-in duration-200" onClick={() => onOpenChange(false)}>
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div 
-                className={cn("bg-background w-full max-w-lg rounded-none shadow-hypr-dark border-2 border-black dark:border-zinc-700 animate-in zoom-in-95 duration-200 relative dark:bg-zinc-900 dark:text-white", className)}
-                onClick={(e) => e.stopPropagation()}
-            >
+                className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" 
+                onClick={() => onOpenChange(false)}
+            />
+            <div className="relative z-50 animate-in zoom-in-95 duration-200">
                 {children}
             </div>
         </div>
-    )
-}
+    );
+};
 
-export const DialogHeader = ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn("flex flex-col space-y-1.5 text-center sm:text-left p-6 border-b border-black/10 dark:border-zinc-800", className)} {...props}>{children}</div>
-)
-export const DialogTitle = ({ children, className, ...props }: React.HTMLAttributes<HTMLHeadingElement>) => (
-    <h3 className={cn("text-lg font-semibold leading-none tracking-tight text-foreground dark:text-white", className)} {...props}>{children}</h3>
-)
-export const DialogContent = ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn("p-6", className)} {...props}>{children}</div>
-)
-export const DialogFooter = ({ children, className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
-    <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 p-6 border-t border-black/10 dark:border-zinc-800 bg-muted/10 dark:bg-zinc-900/50", className)} {...props}>{children}</div>
-)
+export const DialogContent = ({ className, children }: { className?: string, children?: React.ReactNode }) => (
+    <div className={cn("bg-white dark:bg-zinc-950 border-2 border-black dark:border-white shadow-sharp p-6 w-full max-w-lg relative", className)}>
+        {children}
+    </div>
+);
+
+export const DialogHeader = ({ className, children }: { className?: string, children?: React.ReactNode }) => (
+    <div className={cn("mb-4 space-y-1.5 text-center sm:text-left", className)}>
+        {children}
+    </div>
+);
+
+export const DialogTitle = ({ className, children }: { className?: string, children?: React.ReactNode }) => (
+    <h2 className={cn("text-lg font-bold leading-none tracking-tight font-mono uppercase", className)}>
+        {children}
+    </h2>
+);
+
+export const DialogFooter = ({ className, children }: { className?: string, children?: React.ReactNode }) => (
+    <div className={cn("flex flex-col-reverse sm:flex-row sm:justify-end sm:space-x-2 mt-6", className)}>
+        {children}
+    </div>
+);
