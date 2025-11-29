@@ -1,8 +1,16 @@
+
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { BlockType, DocBlock } from "../types";
 
 // Initialize Gemini Client
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// IMPORTANT: We wrap this in a safe getter or default because in some preview environments
+// process.env.API_KEY might be missing or limited.
+let ai: GoogleGenAI;
+try {
+  ai = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_key' });
+} catch (e) {
+  console.warn("Gemini Client Init Warning:", e);
+}
 
 /**
  * AI Service for HyprDoc
@@ -13,7 +21,7 @@ const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 const baseBlockProperties = {
   type: {
       type: Type.STRING,
-      description: "Block type: text, input, long_text, number, email, date, signature, section_break, checkbox, radio, select, columns, column, spacer, alert, quote, repeater"
+      description: "Block type. MUST be one of: text, input, number, email, date, signature, section_break, checkbox, radio, select, columns, column, spacer, alert, quote, repeater, currency, payment"
   },
   label: { type: Type.STRING, description: "Label for the input field" },
   content: { type: Type.STRING, description: "Markdown content for text, or message for alert/quote" },
@@ -142,6 +150,14 @@ const processAIBlock = (raw: any): DocBlock => {
 };
 
 export const generateDocumentFromPrompt = async (prompt: string): Promise<{ title: string, blocks: DocBlock[] }> => {
+  if (!process.env.API_KEY) {
+      console.warn("Missing API Key - Returning mock content.");
+      return {
+          title: "Demo Document (No API Key)",
+          blocks: [{ id: crypto.randomUUID(), type: BlockType.TEXT, content: "# Demo Mode\n\nNo API Key detected in environment variables. Please add `API_KEY` to use Gemini features." }]
+      };
+  }
+
   try {
     const response = await ai.models.generateContent({
       model: 'gemini-2.5-flash',
@@ -153,9 +169,10 @@ export const generateDocumentFromPrompt = async (prompt: string): Promise<{ titl
       2. EMPHASIS: Use 'alert' blocks (variant: 'info', 'warning', or 'error') for critical notices, disclaimers, or instructions.
       3. STYLING: Use 'quote' blocks for recitals, key definitions, or preambles.
       4. SPACING: Use 'spacer' blocks to separate distinct sections visually.
-      5. DATA: Use 'input', 'number', 'date', 'email', 'select', 'checkbox' for data collection.
+      5. DATA: Use 'input', 'number', 'date', 'email', 'select', 'checkbox', 'radio' for data collection.
       6. CONTENT: Use 'text' blocks with Markdown (headers #, bold **) for clauses.
       7. LOGIC: Ensure variableNames are snake_case and unique.
+      8. ADVANCED: Use 'currency' for money fields (amount, exchange rates). Use 'payment' if the user explicitly asks for checkout or billing.
       
       Create a professional, modern, and comprehensive document structure.`,
       config: {
@@ -182,6 +199,8 @@ export const generateDocumentFromPrompt = async (prompt: string): Promise<{ titl
 };
 
 export const refineText = async (text: string, instruction: 'fix_grammar' | 'make_legalese' | 'shorten' | 'expand'): Promise<string> => {
+  if (!process.env.API_KEY) return text + " [AI Demo Mode: Key Missing]";
+
   try {
     const prompts = {
       fix_grammar: "Fix grammar and spelling errors in the following text, keeping the tone professional:",

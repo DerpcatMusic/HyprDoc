@@ -1,268 +1,39 @@
 
-
-import React, { useRef, useEffect, useState, useCallback } from 'react';
-import { BlockType, DocBlock, FormValues, Party, DocumentSettings } from '../types';
+import React from 'react';
+import { BlockType, EditorBlockProps } from '../types';
 import { 
-    Trash2, Repeat, Type, GripVertical, CheckCircle2, AlertCircle,
+    Trash2, Repeat, GripVertical, CheckCircle2, AlertCircle,
     Plus, PanelLeft, LayoutTemplate, MoveVertical, AlertTriangle, Quote, Info, XOctagon,
-    Minus, Image as ImageIcon, FileUp, FileText, User, Wand2, Loader2, Columns as ColumnsIcon,
-    Bold, Italic, Strikethrough, Heading1, Heading2, List, ListOrdered, CreditCard, Landmark, QrCode, Percent,
-    ExternalLink, ChevronDown, Calendar, Video
+    Minus, Image as ImageIcon, FileUp, FileText, User, Columns as ColumnsIcon, ChevronDown, Calendar, Video
 } from 'lucide-react';
-import { Button, cn, SlashMenu, BLOCK_META, Input, Label, Tabs, TabsList, TabsTrigger, TabsContent, Switch, Badge } from './ui-components';
+import { cn, BLOCK_META } from './ui-components';
 import { ConditionalZone } from './editor/ConditionalZone';
 import { useDocument } from '../context/DocumentContext';
-import { refineText } from '../services/gemini';
+import { useBlockDrag } from '../hooks/useBlockDrag';
 
-// Tiptap Imports
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Placeholder from '@tiptap/extension-placeholder';
+// Import Modular Blocks
+import { TextEditor } from './blocks/TextEditor';
+import { PaymentEditor } from './blocks/PaymentEditor';
 
-interface EditorBlockProps {
-  block: DocBlock;
-  formValues: FormValues;
-  isSelected: boolean;
-  parties: Party[];
-  allBlocks?: DocBlock[]; 
-  docSettings?: DocumentSettings; // Added prop
-  onSelect: (id: string) => void;
-  onUpdate: (id: string, updates: Partial<DocBlock>) => void;
-  onDelete: (id: string) => void;
-  onDragStart: (e: React.DragEvent, id: string) => void;
-  onDragEnd?: (e: React.DragEvent) => void;
-  onDrop: (e: React.DragEvent, id: string, position: 'before'|'after'|'inside'|'inside-false') => void;
-  index?: number;
+// --- Sub-Components (Smaller ones kept locally for now) ---
+
+const DropIndicator = ({ position }: { position: string | null }) => {
+    if (position === 'before') return <div className="absolute -top-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none shadow-[0_0_10px_rgba(var(--primary),0.5)]" />;
+    if (position === 'after') return <div className="absolute -bottom-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none shadow-[0_0_10px_rgba(var(--primary),0.5)]" />;
+    return null;
 }
 
-// --- Hooks ---
-const useBlockDrag = (
-    block: DocBlock, 
-    onDragStart: (e: React.DragEvent, id: string) => void, 
-    onDrop: EditorBlockProps['onDrop']
-) => {
-    const [dropPosition, setDropPosition] = useState<'before' | 'after' | 'inside' | null>(null);
-    const elementRef = useRef<HTMLDivElement>(null);
-
-    const handleDragStartInternal = (e: React.DragEvent) => {
-        e.dataTransfer.effectAllowed = 'move';
-        e.stopPropagation(); // Don't drag parent
-        onDragStart(e, block.id);
-    };
-
-    const handleDragOver = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        if (!elementRef.current) return;
-        const rect = elementRef.current.getBoundingClientRect();
-        const y = e.clientY - rect.top;
-        
-        if (['repeater', 'column'].includes(block.type)) {
-            setDropPosition('inside');
-            return;
-        }
-
-        if (y < rect.height * 0.5) setDropPosition('before');
-        else setDropPosition('after');
-    };
-
-    const handleDropInternal = (e: React.DragEvent) => {
-        e.preventDefault(); 
-        e.stopPropagation();
-        if (dropPosition) onDrop(e, block.id, dropPosition);
-        setDropPosition(null);
-    };
-
-    const handleDragLeave = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        setDropPosition(null);
-    }
-
-    return {
-        dropPosition,
-        setDropPosition,
-        elementRef,
-        handleDragStartInternal,
-        handleDragOver,
-        handleDropInternal,
-        handleDragLeave
-    };
-};
-
-// --- Sub-Components ---
-
-const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
-    const { block, onUpdate, onDelete, onSelect, isSelected, docSettings } = props;
-    const { doc, setMode } = useDocument();
-    const { dropPosition, elementRef, handleDragStartInternal, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
-    
-    // Default safe values
-    const settings = block.paymentSettings || { 
-        amountType: 'fixed', amount: 0, currency: 'USD', enabledProviders: ['stripe'] 
-    };
-
-    const enabledProviders = settings.enabledProviders || [];
-
-    const handleSettingChange = (key: string, value: any) => {
-        onUpdate(block.id, { 
-            paymentSettings: { ...settings, [key]: value } 
-        });
-    };
-
-    const toggleProvider = (providerId: string, enabled: boolean) => {
-        let newProviders = [...enabledProviders];
-        if (enabled) {
-            if (!newProviders.includes(providerId)) newProviders.push(providerId);
-        } else {
-            newProviders = newProviders.filter(p => p !== providerId);
-        }
-        onUpdate(block.id, { 
-            paymentSettings: { ...settings, enabledProviders: newProviders } 
-        });
-    };
-    
-    // Check global configuration status
-    const isConfigured = (provider: string) => {
-        const gateways = docSettings?.paymentGateways as any;
-        if (!gateways) return false;
-        const config = gateways[provider];
-        if (!config) return false;
-        
-        // Basic check for required keys
-        if (provider === 'stripe') return !!config.publishableKey;
-        if (provider === 'bit') return !!config.phoneNumber;
-        if (provider === 'wise') return !!config.recipientEmail;
-        if (provider === 'paypal') return !!config.clientId;
-        if (provider === 'gocardless') return !!config.merchantId;
-        return false;
-    };
-
-    const numericVariables = doc.variables.filter(v => !isNaN(parseFloat(v.value)));
-
-    return (
-        <div ref={elementRef}
-             className={cn("relative group mb-3 border-2 transition-all p-4 bg-white dark:bg-black/20", isSelected ? "border-primary z-20" : "border-black/10 hover:border-black/30")}
-             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={(e) => e.preventDefault()} onDrop={handleDropInternal}>
-             
-             {isSelected && <SelectedHeader label="PAYMENT" onDelete={() => onDelete(block.id)} />}
-
-             <div className="flex items-center gap-2 mb-4 text-xs font-bold font-mono uppercase tracking-widest text-muted-foreground border-b pb-2">
-                 <CreditCard size={14} /> Payment Gateway
-             </div>
-
-             <div className="space-y-4">
-                 <div className="grid grid-cols-2 gap-4">
-                     <div>
-                         <Label>Calculation Mode</Label>
-                         <select 
-                             className="w-full text-xs h-8 border border-input bg-transparent"
-                             value={settings.amountType}
-                             onChange={(e) => handleSettingChange('amountType', e.target.value)}
-                         >
-                             <option value="fixed">Fixed Amount</option>
-                             <option value="variable">From Variable</option>
-                             <option value="percent">Percentage (Deposit)</option>
-                         </select>
-                     </div>
-                     <div>
-                         <Label>Currency</Label>
-                         <select 
-                            className="w-full text-xs h-8 border border-input bg-transparent"
-                            value={settings.currency}
-                            onChange={(e) => handleSettingChange('currency', e.target.value)}
-                         >
-                             {['USD', 'EUR', 'GBP', 'ILS', 'CAD', 'AUD'].map(c => <option key={c} value={c}>{c}</option>)}
-                         </select>
-                     </div>
-                 </div>
-
-                 {settings.amountType === 'fixed' && (
-                     <div>
-                         <Label>Amount</Label>
-                         <Input type="number" className="h-8" value={settings.amount} onChange={(e) => handleSettingChange('amount', parseFloat(e.target.value))} />
-                     </div>
-                 )}
-
-                 {settings.amountType === 'variable' && (
-                     <div>
-                         <Label>Source Variable</Label>
-                         <select 
-                            className="w-full text-xs h-8 border border-input bg-transparent"
-                            value={settings.variableName || ''}
-                            onChange={(e) => handleSettingChange('variableName', e.target.value)}
-                         >
-                             <option value="" disabled>Select Variable...</option>
-                             {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
-                         </select>
-                     </div>
-                 )}
-
-                 {settings.amountType === 'percent' && (
-                     <div className="grid grid-cols-2 gap-4">
-                         <div>
-                             <Label>Percentage %</Label>
-                             <Input type="number" className="h-8" placeholder="10" value={settings.percentage || ''} onChange={(e) => handleSettingChange('percentage', parseFloat(e.target.value))} />
-                         </div>
-                         <div>
-                             <Label>Of Total (Variable)</Label>
-                             <select 
-                                className="w-full text-xs h-8 border border-input bg-transparent"
-                                value={settings.variableName || ''}
-                                onChange={(e) => handleSettingChange('variableName', e.target.value)}
-                             >
-                                 <option value="" disabled>Select Total...</option>
-                                 {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
-                             </select>
-                         </div>
-                     </div>
-                 )}
-
-                 <div className="pt-2">
-                     <Label className="mb-2 block flex items-center justify-between">
-                         <span>Enabled Providers</span>
-                         <button onClick={() => setMode('settings')} className="text-primary text-[9px] hover:underline flex items-center gap-1">
-                             Configure Keys <ExternalLink size={8} />
-                         </button>
-                     </Label>
-                     
-                     <div className="space-y-2">
-                         {['stripe', 'wise', 'bit', 'gocardless', 'paypal'].map(provider => {
-                             const isEnabled = enabledProviders.includes(provider);
-                             const configured = isConfigured(provider);
-                             
-                             return (
-                                 <div key={provider} className={cn("flex items-center justify-between border p-2 text-xs", isEnabled ? "bg-white dark:bg-white/5 border-black/20" : "bg-muted/10 border-transparent")}>
-                                     <div className="flex items-center gap-2">
-                                         <Switch checked={isEnabled} onCheckedChange={(c) => toggleProvider(provider, c)} className="scale-75 origin-left" />
-                                         <span className="uppercase font-bold">{provider}</span>
-                                     </div>
-                                     {isEnabled && (
-                                         configured ? (
-                                             <Badge variant="outline" className="text-green-600 border-green-200 bg-green-50 text-[9px]">
-                                                 <CheckCircle2 size={10} className="mr-1"/> Ready
-                                             </Badge>
-                                         ) : (
-                                             <Badge variant="outline" className="text-red-600 border-red-200 bg-red-50 text-[9px]">
-                                                 <AlertTriangle size={10} className="mr-1"/> Missing Config
-                                             </Badge>
-                                         )
-                                     )}
-                                 </div>
-                             );
-                         })}
-                     </div>
-                 </div>
-             </div>
-        </div>
-    );
-}
+const SelectedHeader = ({ label, onDelete }: { label: string, onDelete: () => void }) => (
+    <div className="absolute -top-3 right-0 flex border-2 border-black dark:border-white bg-white dark:bg-black shadow-sharp z-50 h-6">
+        <div className="px-2 flex items-center bg-black dark:bg-white text-white dark:text-black text-[9px] font-bold font-mono uppercase">{label}</div>
+        <button className="px-2 hover:bg-red-600 hover:text-white dark:text-white transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(); }}><Trash2 size={12} /></button>
+    </div>
+)
 
 const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onUpdate, onDelete, onSelect, isSelected } = props;
     const { ungroupBlock } = useDocument();
-    const { dropPosition, elementRef, handleDragStartInternal, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const { handleDragStartInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
     
     const childCount = block.children?.length || 0;
 
@@ -280,7 +51,7 @@ const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
     };
 
     return (
-        <div ref={elementRef} 
+        <div 
              className={cn("w-full relative mb-6 group border-2 border-transparent transition-all", isSelected ? "border-primary/50 bg-primary/5 p-2 rounded-sm" : "hover:border-black/10 p-2")}
              onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
              draggable 
@@ -317,8 +88,8 @@ const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
 };
 
 const ColumnDropZone: React.FC<EditorBlockProps> = (props) => {
-    const { block, onSelect } = props;
-    const { dropPosition, setDropPosition, elementRef, handleDropInternal, handleDragOver, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const { block } = props;
+    const { dropPosition, elementRef, handleDropInternal, handleDragOver, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     return (
         <div 
@@ -351,7 +122,7 @@ const ColumnDropZone: React.FC<EditorBlockProps> = (props) => {
 
 const SpacerEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const { elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     return (
         <div ref={elementRef} 
@@ -387,7 +158,7 @@ const SpacerEditor: React.FC<EditorBlockProps> = (props) => {
 
 const AlertEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const { elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
     
     const variant = block.variant || 'info';
     const styles = {
@@ -428,7 +199,7 @@ const AlertEditor: React.FC<EditorBlockProps> = (props) => {
 
 const QuoteEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const { elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     return (
         <div ref={elementRef} className={cn("relative group mb-3 pl-4 border-l-4 border-black/20 dark:border-white/20", isSelected && "border-primary")}
@@ -455,8 +226,8 @@ const QuoteEditor: React.FC<EditorBlockProps> = (props) => {
 };
 
 const RepeaterEditor: React.FC<EditorBlockProps> = (props) => {
-    const { block, onSelect, onDelete, isSelected } = props;
-    const { dropPosition, setDropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const { block, onSelect, isSelected } = props;
+    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     return (
         <div ref={elementRef} className={cn("relative mb-6 border-2 bg-white dark:bg-black p-4", isSelected ? "border-primary shadow-lg" : "border-black border-dashed")}
@@ -473,153 +244,6 @@ const RepeaterEditor: React.FC<EditorBlockProps> = (props) => {
                    ))}
               </div>
               {dropPosition === 'inside' && <div className="absolute inset-0 bg-primary/10 border-2 border-primary pointer-events-none" />}
-        </div>
-    );
-};
-
-// --- TIPTAP TEXT EDITOR ---
-
-const TextEditor: React.FC<EditorBlockProps> = (props) => {
-    const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { addBlock } = useDocument();
-    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
-    const [showSlashMenu, setShowSlashMenu] = useState(false);
-    const [slashFilter, setSlashFilter] = useState('');
-    const [slashMenuIndex, setSlashMenuIndex] = useState(0);
-    const [slashCoords, setSlashCoords] = useState({ top: 0, left: 0 });
-
-    const editor = useEditor({
-        extensions: [
-            StarterKit,
-            Placeholder.configure({ placeholder: "Type '/' for commands..." }),
-        ],
-        content: block.content || '',
-        onUpdate: ({ editor }) => {
-            const html = editor.getHTML();
-            if (html !== block.content) {
-                // Debounce could be added here
-                onUpdate(block.id, { content: html });
-            }
-
-            // Slash Command Logic
-            const { state } = editor;
-            const selection = state.selection;
-            const textBefore = state.doc.textBetween(Math.max(0, selection.from - 20), selection.from, '\n', '\0');
-            const match = textBefore.match(/\/([a-zA-Z0-9]*)$/);
-
-            if (match) {
-                const coords = editor.view.coordsAtPos(selection.from);
-                setShowSlashMenu(true);
-                setSlashFilter(match[1]);
-                setSlashCoords({ top: coords.bottom + window.scrollY + 10, left: coords.left + window.scrollX });
-            } else {
-                setShowSlashMenu(false);
-            }
-        },
-        editorProps: {
-            handleKeyDown: (view, event) => {
-                if (showSlashMenu) {
-                    const maxIndex = BLOCK_META.filter(b => b.label.toLowerCase().includes(slashFilter.toLowerCase())).length - 1;
-                    if (event.key === 'ArrowDown') {
-                        setSlashMenuIndex(prev => Math.min(prev + 1, maxIndex));
-                        return true;
-                    }
-                    if (event.key === 'ArrowUp') {
-                        setSlashMenuIndex(prev => Math.max(prev - 1, 0));
-                        return true;
-                    }
-                    if (event.key === 'Enter') {
-                        const filtered = BLOCK_META.filter(b => b.label.toLowerCase().includes(slashFilter.toLowerCase()));
-                        if (filtered[slashMenuIndex]) handleSlashSelect(filtered[slashMenuIndex].type);
-                        return true;
-                    }
-                    if (event.key === 'Escape') {
-                        setShowSlashMenu(false);
-                        return true;
-                    }
-                }
-                // Enter to create new block if at end (and not in list)
-                if (event.key === 'Enter' && !event.shiftKey && !showSlashMenu) {
-                     if (event.ctrlKey || event.metaKey) {
-                        addBlock(BlockType.TEXT, block.id, 'after');
-                        return true;
-                     }
-                }
-                return false;
-            }
-        }
-    });
-
-    // Sync content if it changes externally (e.g. AI update)
-    useEffect(() => {
-        if (editor && block.content && editor.getHTML() !== block.content) {
-             // Only update if significantly different to avoid cursor jump
-             if (Math.abs(editor.getHTML().length - block.content.length) > 5) {
-                editor.commands.setContent(block.content);
-             }
-        }
-    }, [block.content, editor]);
-
-    const handleSlashSelect = (actionId: string) => {
-        if (!editor) return;
-        
-        // Delete the slash command text
-        const { state } = editor;
-        const { from } = state.selection;
-        const start = from - (slashFilter.length + 1);
-        editor.commands.deleteRange({ from: start, to: from });
-        
-        setShowSlashMenu(false);
-
-        if (actionId === 'h1') { editor.chain().focus().toggleHeading({ level: 1 }).run(); return; }
-        if (actionId === 'h2') { editor.chain().focus().toggleHeading({ level: 2 }).run(); return; }
-        if (actionId === 'bulletList') { editor.chain().focus().toggleBulletList().run(); return; }
-        
-        // Convert block or add new
-        if (block.type === BlockType.TEXT && !block.content) {
-             onUpdate(block.id, { type: actionId as BlockType });
-        } else {
-             addBlock(actionId as BlockType, block.id, 'after');
-        }
-    };
-
-    return (
-        <div ref={elementRef} 
-             className={cn("relative group mb-1", isSelected ? "z-10" : "z-0")}
-             onClick={(e) => { e.stopPropagation(); onSelect(block.id); editor?.commands.focus(); }}
-             onDragOver={handleDragOver} onDrop={handleDropInternal}
-        >
-            <DropIndicator position={dropPosition} />
-
-             <div className={cn("absolute -left-10 top-0.5 flex items-center gap-1 opacity-0 transition-opacity", (isSelected) ? "opacity-100" : "group-hover:opacity-100")}>
-                 <div className="cursor-grab active:cursor-grabbing p-1 text-muted-foreground hover:text-foreground" draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd}><GripVertical size={14} /></div>
-                 <button onClick={() => onDelete(block.id)} className="p-1 text-muted-foreground hover:text-red-500"><Trash2 size={14} /></button>
-             </div>
-             
-             {/* TIPTAP EDITOR */}
-             <div className={cn("prose dark:prose-invert max-w-none text-sm font-serif leading-7 min-h-[24px]", isSelected ? "" : "opacity-90")}>
-                {editor && (
-                    <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex items-center gap-1 p-1 bg-black text-white rounded-sm shadow-xl border border-white/20">
-                        <button onClick={() => editor.chain().focus().toggleBold().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('bold') ? 'bg-white/30 text-white' : '')}><Bold size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('italic') ? 'bg-white/30 text-white' : '')}><Italic size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleStrike().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('strike') ? 'bg-white/30 text-white' : '')}><Strikethrough size={12}/></button>
-                        <div className="w-px h-3 bg-white/20 mx-1" />
-                        <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('heading', { level: 1 }) ? 'bg-white/30' : '')}><Heading1 size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('heading', { level: 2 }) ? 'bg-white/30' : '')}><Heading2 size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('bulletList') ? 'bg-white/30' : '')}><List size={12}/></button>
-                    </BubbleMenu>
-                )}
-                <EditorContent editor={editor} />
-             </div>
-
-            <SlashMenu 
-              isOpen={showSlashMenu} 
-              filter={slashFilter}
-              position={slashCoords} 
-              onSelect={handleSlashSelect} 
-              onClose={() => setShowSlashMenu(false)} 
-              selectedIndex={slashMenuIndex} 
-            />
         </div>
     );
 };
@@ -768,20 +392,6 @@ const StandardEditor: React.FC<EditorBlockProps> = (props) => {
         </div>
     );
 };
-
-// --- Helper UI Components ---
-const DropIndicator = ({ position }: { position: string | null }) => {
-    if (position === 'before') return <div className="absolute -top-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none shadow-[0_0_10px_rgba(var(--primary),0.5)]" />;
-    if (position === 'after') return <div className="absolute -bottom-2 left-0 right-0 h-1 bg-primary z-50 pointer-events-none shadow-[0_0_10px_rgba(var(--primary),0.5)]" />;
-    return null;
-}
-
-const SelectedHeader = ({ label, onDelete }: { label: string, onDelete: () => void }) => (
-    <div className="absolute -top-3 right-0 flex border-2 border-black dark:border-white bg-white dark:bg-black shadow-sharp z-50 h-6">
-        <div className="px-2 flex items-center bg-black dark:bg-white text-white dark:text-black text-[9px] font-bold font-mono uppercase">{label}</div>
-        <button className="px-2 hover:bg-red-600 hover:text-white dark:text-white transition-colors" onClick={(e) => { e.stopPropagation(); onDelete(); }}><Trash2 size={12} /></button>
-    </div>
-)
 
 // --- Main Component ---
 

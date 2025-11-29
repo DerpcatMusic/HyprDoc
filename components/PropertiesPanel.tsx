@@ -1,7 +1,8 @@
+
 import React, { useState } from 'react';
 import { DocBlock, BlockType, Party, Variable } from '../types';
 import { Input, Label, Textarea, cn, Button, Badge } from './ui-components';
-import { X, HelpCircle, DollarSign, ChevronRight, ChevronLeft, Settings, Image as ImageIcon, Video, Calculator, FileUp, Repeat, Plus, Braces, Trash2, Users, CheckCircle2, AlertOctagon, CalendarRange } from 'lucide-react';
+import { X, HelpCircle, DollarSign, ChevronRight, ChevronLeft, Settings, Image as ImageIcon, Video, Calculator, FileUp, Repeat, Plus, Braces, Trash2, Users, CheckCircle2, AlertOctagon, CalendarRange, ArrowRightLeft } from 'lucide-react';
 import { SUPPORTED_CURRENCIES } from '../services/currency';
 import { useDocument } from '../context/DocumentContext';
 
@@ -31,8 +32,20 @@ const NON_ASSIGNABLE_BLOCKS = [
     BlockType.SPACER,
     BlockType.ALERT,
     BlockType.QUOTE,
-    BlockType.HTML
+    BlockType.HTML,
+    BlockType.CURRENCY,
+    BlockType.FORMULA
 ];
+
+const getAllNumericBlocks = (blocks: DocBlock[]): DocBlock[] => {
+    let numeric: DocBlock[] = [];
+    blocks.forEach(b => {
+        if (b.type === BlockType.NUMBER) numeric.push(b);
+        if (b.children) numeric = [...numeric, ...getAllNumericBlocks(b.children)];
+        if (b.elseChildren) numeric = [...numeric, ...getAllNumericBlocks(b.elseChildren)];
+    });
+    return numeric;
+};
 
 export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties, variables = [], onUpdate, onDelete, onClose, onUpdateVariables }) => {
     const [newOption, setNewOption] = useState('');
@@ -67,7 +80,8 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
         onUpdateVariables((doc.variables || []).filter(v => v.id !== id));
     }
 
-    const numericBlocks = doc.blocks.filter(b => b.type === BlockType.NUMBER && block && b.id !== block.id);
+    // Recursively find all numeric blocks for Formula and Currency inputs
+    const numericBlocks = getAllNumericBlocks(doc.blocks).filter(b => block && b.id !== block.id);
 
     return (
         <div 
@@ -330,6 +344,97 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
                                             <Label>Video URL</Label>
                                             <Input value={block.videoUrl || ''} onChange={(e) => onUpdate(block.id, { videoUrl: e.target.value })} placeholder="YouTube or Vimeo URL" />
                                         </div>
+                                    </div>
+                                )}
+
+                                 {/* Currency Config */}
+                                {block.type === BlockType.CURRENCY && (
+                                    <div className="space-y-4 pt-4 border-t border-dashed border-black/20 dark:border-white/20">
+                                        <SectionHeader title="Currency Exchange" number="FX" />
+                                        
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="space-y-2">
+                                                <Label>From (Base)</Label>
+                                                <select 
+                                                    className="w-full text-xs h-8 border border-input bg-transparent"
+                                                    value={block.currencySettings?.baseCurrency || 'USD'}
+                                                    onChange={(e) => onUpdate(block.id, { 
+                                                        currencySettings: { ...block.currencySettings!, baseCurrency: e.target.value } 
+                                                    })}
+                                                >
+                                                    {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+                                                </select>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <Label>To (Default)</Label>
+                                                <select 
+                                                    className="w-full text-xs h-8 border border-input bg-transparent"
+                                                    value={block.currencySettings?.targetCurrency || 'EUR'}
+                                                    onChange={(e) => onUpdate(block.id, { 
+                                                        currencySettings: { ...block.currencySettings!, targetCurrency: e.target.value } 
+                                                    })}
+                                                >
+                                                    {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
+                                                </select>
+                                            </div>
+                                        </div>
+
+                                        <div className="space-y-2">
+                                            <Label>Amount Source</Label>
+                                            <div className="flex bg-muted/20 p-1 border rounded-sm">
+                                                <button
+                                                    className={cn(
+                                                        "flex-1 text-[10px] font-bold uppercase py-1 transition-colors",
+                                                        block.currencySettings?.amountType !== 'field' ? "bg-black text-white dark:bg-white dark:text-black shadow-sm" : "text-muted-foreground hover:bg-black/5"
+                                                    )}
+                                                    onClick={() => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, amountType: 'fixed' } })}
+                                                >
+                                                    Fixed Value
+                                                </button>
+                                                <button
+                                                    className={cn(
+                                                        "flex-1 text-[10px] font-bold uppercase py-1 transition-colors",
+                                                        block.currencySettings?.amountType === 'field' ? "bg-black text-white dark:bg-white dark:text-black shadow-sm" : "text-muted-foreground hover:bg-black/5"
+                                                    )}
+                                                    onClick={() => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, amountType: 'field' } })}
+                                                >
+                                                    From Field
+                                                </button>
+                                            </div>
+                                        </div>
+
+                                        {block.currencySettings?.amountType !== 'field' ? (
+                                             <div className="space-y-2 animate-in fade-in">
+                                                <Label>Fixed Amount</Label>
+                                                <div className="relative">
+                                                    <Input 
+                                                        type="number" 
+                                                        className="pl-8"
+                                                        value={block.currencySettings?.amount ?? 0}
+                                                        onChange={(e) => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, amount: parseFloat(e.target.value) } })}
+                                                    />
+                                                    <DollarSign size={14} className="absolute left-2.5 top-2.5 text-muted-foreground" />
+                                                </div>
+                                            </div>
+                                        ) : (
+                                            <div className="space-y-2 animate-in fade-in">
+                                                <Label>Linked Number Field</Label>
+                                                <select 
+                                                    className="w-full text-xs h-8 border border-input bg-transparent"
+                                                    value={block.currencySettings?.sourceFieldId || ''}
+                                                    onChange={(e) => onUpdate(block.id, { currencySettings: { ...block.currencySettings!, sourceFieldId: e.target.value } })}
+                                                >
+                                                    <option value="" disabled>Select a number field...</option>
+                                                    {numericBlocks.map(b => (
+                                                        <option key={b.id} value={b.id}>
+                                                            {b.label || 'Untitled'} ({b.variableName})
+                                                        </option>
+                                                    ))}
+                                                </select>
+                                                {numericBlocks.length === 0 && <p className="text-[10px] text-destructive bg-red-50 p-2 mt-1">No number fields available in document.</p>}
+                                            </div>
+                                        )}
                                     </div>
                                 )}
 

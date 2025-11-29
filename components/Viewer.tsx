@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { BlockType, DocBlock, FormValues, Party, DocumentSettings, Variable, Term } from '../types';
 import { Plus, Trash, AlertCircle, RefreshCw, UploadCloud, X, CreditCard, Lock, Video, Eye, Eraser, ArrowRight, CheckCircle2, Navigation, ChevronRight, ChevronLeft, Flag, AlertTriangle, Phone, Image as ImageIcon, ArrowDown, FileText, Repeat, Trash2, Calculator, ArrowRightLeft, Quote, Info, XOctagon, Landmark, QrCode, ShieldCheck, FileUp, ChevronDown } from 'lucide-react';
@@ -21,6 +22,7 @@ interface ViewerProps {
   docHash?: string; // Passed from parent
   onSigningComplete?: (docId: string) => void;
   status?: 'draft' | 'sent' | 'completed' | 'archived'; // Add status prop
+  verifiedIdentifier?: string; // NEW: from 2FA
 }
 
 // --- Helper Components ---
@@ -480,7 +482,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
 
 // --- Main Viewer Component ---
 
-export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], variables = [], terms = [], isPreview = false, settings, docHash, onSigningComplete, status }) => {
+export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], variables = [], terms = [], isPreview = false, settings, docHash, onSigningComplete, status, verifiedIdentifier }) => {
   const [formValues, setFormValues] = useState<FormValues>({});
   const [validationErrors, setValidationErrors] = useState<Record<string, string>>({});
   const [userCurrencyPreferences, setUserCurrencyPreferences] = useState<Record<string, string>>({});
@@ -549,13 +551,19 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                   // Geo permission denied or timeout
               }
 
-              const result = await SupabaseService.signDocumentBlock(docId, blockId, {
-                  url,
-                  timestamp: Date.now(),
-                  ip,
-                  userAgent,
-                  location: locationString
-              }, simulatedPartyId);
+              const result = await SupabaseService.signDocumentBlock(
+                  docId, 
+                  blockId, 
+                  {
+                    url,
+                    timestamp: Date.now(),
+                    ip,
+                    userAgent,
+                    location: locationString
+                  }, 
+                  simulatedPartyId,
+                  verifiedIdentifier // Pass 2FA info
+              );
 
               if (result.success && result.updatedDoc?.status === 'completed') {
                   setIsCompleted(true);
@@ -632,6 +640,12 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
 
         <div className="max-w-[850px] mx-auto bg-white dark:bg-black border-2 border-black dark:border-zinc-800 shadow-hypr dark:shadow-hypr-dark relative transition-all p-16 min-h-[1100px]" dir={settings?.direction || 'ltr'}>
              <div className="absolute top-4 right-4 flex items-center gap-2">
+                 {verifiedIdentifier && (
+                     <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-2 py-1 flex items-center gap-2">
+                        <ShieldCheck size={10} className="text-green-600" />
+                        <span className="font-mono text-[9px] uppercase tracking-widest text-green-700">{verifiedIdentifier}</span>
+                     </div>
+                 )}
                  <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-2 py-1 flex items-center gap-2">
                      <Lock size={10} className={isCompleted ? "text-green-600" : "text-muted-foreground"} />
                      <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{docHash ? docHash.substring(0, 16) + '...' : 'CALCULATING...'}</span>

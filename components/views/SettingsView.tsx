@@ -3,7 +3,8 @@
 import React from 'react';
 import { DocumentSettings, Integration, Party } from '../../types';
 import { Card, Label, Input, Button, Switch, FontPicker, ColorPicker, Tabs, TabsList, TabsTrigger, TabsContent, Badge } from '../ui-components';
-import { CreditCard, Webhook, Database, Link as LinkIcon, CheckCircle2, ArrowUp, ArrowDown, Users, Shuffle, AlignLeft, AlignRight, Landmark, QrCode } from 'lucide-react';
+import { CreditCard, Webhook, Database, Link as LinkIcon, CheckCircle2, ArrowUp, ArrowDown, Users, Shuffle, AlignLeft, AlignRight, Landmark, QrCode, LayoutTemplate } from 'lucide-react';
+import { useDocument } from '../../context/DocumentContext';
 
 interface SettingsViewProps {
     settings?: DocumentSettings;
@@ -13,6 +14,8 @@ interface SettingsViewProps {
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, parties, onUpdateParties }) => {
+    const { doc, setDoc } = useDocument();
+
     const handleChange = (key: keyof DocumentSettings, value: any) => {
         onUpdate({ ...settings, [key]: value });
     };
@@ -30,6 +33,11 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, 
         });
     };
 
+    const toggleTemplateStatus = () => {
+        const newStatus = doc.status === 'template' ? 'draft' : 'template';
+        setDoc(prev => ({ ...prev, status: newStatus }));
+    };
+
     const moveParty = (index: number, direction: 'up' | 'down') => {
         if (!parties || !onUpdateParties) return;
         const newParties = [...parties];
@@ -44,7 +52,20 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, 
     return (
         <div className="flex-1 overflow-y-auto bg-muted/10 p-8 dark:bg-zinc-950">
             <div className="max-w-4xl mx-auto space-y-6">
-                <h1 className="text-3xl font-bold">Document Settings</h1>
+                <div className="flex justify-between items-center">
+                    <h1 className="text-3xl font-bold">Document Settings</h1>
+                    <div className="flex items-center gap-2">
+                        {doc.status === 'template' && <Badge className="bg-purple-100 text-purple-700 border-purple-200">TEMPLATE MODE</Badge>}
+                        <Button 
+                            variant="outline" 
+                            className={doc.status === 'template' ? "border-purple-500 text-purple-600 bg-purple-50" : ""}
+                            onClick={toggleTemplateStatus}
+                        >
+                            <LayoutTemplate size={16} className="mr-2" />
+                            {doc.status === 'template' ? "Convert to Document" : "Save as Template"}
+                        </Button>
+                    </div>
+                </div>
                 
                 <Tabs defaultValue="workflow" className="w-full">
                     <TabsList>

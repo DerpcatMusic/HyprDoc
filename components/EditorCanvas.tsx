@@ -1,10 +1,9 @@
 
-
 import React, { useState, useRef, useEffect } from 'react';
 import { DocBlock, Party, BlockType, DocumentSettings, Variable } from '../types';
 import { EditorBlock } from './EditorBlock';
 import { Button, Input, ColorPicker, cn } from './ui-components';
-import { FileText, Grid, Plus, Settings2, Play, Lock, Unlock, Magnet } from 'lucide-react';
+import { FileText, Grid, Plus, Settings2, Play, Lock, Unlock, Magnet, RotateCcw, RotateCw } from 'lucide-react';
 import { useDocument } from '../context/DocumentContext';
 
 interface EditorCanvasProps {
@@ -33,7 +32,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
     onTitleChange, onTogglePartyManager, onPreview, onSelectBlock,
     onUpdateBlock, onDeleteBlock, onAddBlock, onDropBlock, onUpdateParty
 }) => {
-    const { updateSettings, moveBlock, addParty, removeParty, addBlock, undo, redo } = useDocument();
+    const { updateSettings, moveBlock, addParty, removeParty, addBlock, undo, redo, canUndo, canRedo } = useDocument();
     const [showMargins, setShowMargins] = useState(false); 
     const [snapSize, setSnapSize] = useState(5); 
     const [draggingMargin, setDraggingMargin] = useState<'top' | 'bottom' | 'left' | 'right' | null>(null);
@@ -177,9 +176,28 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                       <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
 
                       <div className="flex items-center gap-2">
+                            <button 
+                                onClick={undo} 
+                                disabled={!canUndo} 
+                                className="h-8 w-8 flex items-center justify-center hover:bg-black hover:text-white disabled:opacity-30 transition-colors border-2 border-transparent hover:border-black dark:hover:border-white active:scale-95" 
+                                title="Undo (Ctrl+Z)"
+                            >
+                                <RotateCcw size={16} />
+                            </button>
+                            <button 
+                                onClick={redo} 
+                                disabled={!canRedo} 
+                                className="h-8 w-8 flex items-center justify-center hover:bg-black hover:text-white disabled:opacity-30 transition-colors border-2 border-transparent hover:border-black dark:hover:border-white active:scale-95" 
+                                title="Redo (Ctrl+Y)"
+                            >
+                                <RotateCw size={16} />
+                            </button>
+
+                          <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-2" />
+
                           <button 
                             className={cn(
-                                "h-8 px-3 flex items-center gap-2 text-[10px] font-bold uppercase font-mono border transition-colors",
+                                "h-8 px-3 flex items-center gap-2 text-[10px] font-bold uppercase font-mono border-2 transition-colors",
                                 showMargins 
                                     ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white" 
                                     : "bg-transparent border-transparent hover:border-black/20"
@@ -193,7 +211,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                              <>
                                  <button
                                     className={cn(
-                                        "h-8 px-3 flex items-center gap-2 text-[10px] font-bold uppercase font-mono border transition-colors",
+                                        "h-8 px-3 flex items-center gap-2 text-[10px] font-bold uppercase font-mono border-2 transition-colors",
                                         mirrorMargins 
                                             ? "text-tech-orange border-tech-orange bg-tech-orange/10" 
                                             : "bg-transparent border-transparent hover:border-black/20"

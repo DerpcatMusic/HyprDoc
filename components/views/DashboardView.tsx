@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
 import { DocumentState, AuditLogEntry } from '../../types';
-import { Card, Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Textarea, Input } from '../ui-components';
-import { FileText, PlusCircle, MoreHorizontal, Clock, CheckCircle2, Eye, PenTool, ShieldCheck, Sparkles, Loader2, RefreshCw } from 'lucide-react';
+import { Card, Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Textarea, Tabs, TabsList, TabsTrigger, TabsContent } from '../ui-components';
+import { FileText, PlusCircle, MoreHorizontal, Clock, CheckCircle2, Eye, PenTool, ShieldCheck, Sparkles, Loader2, RefreshCw, LayoutTemplate, Copy } from 'lucide-react';
 import { generateAuditTrailPDF } from '../../services/auditTrail';
 import { generateDocumentFromPrompt } from '../../services/gemini';
 import { SupabaseService, DocMeta } from '../../services/supabase';
 
 interface DashboardViewProps {
-    documents: DocumentState[]; // Keep generic prop type, but we fetch internally for real data
+    documents: DocumentState[]; 
     auditLog?: AuditLogEntry[];
     onCreate: () => void;
     onSelect: (id: string) => void;
@@ -39,13 +39,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
         switch(status) {
             case 'sent': return 'bg-blue-100 text-blue-700 border-blue-200';
             case 'completed': return 'bg-green-100 text-green-700 border-green-200';
+            case 'template': return 'bg-purple-100 text-purple-700 border-purple-200';
             default: return 'bg-zinc-100 text-zinc-700 border-zinc-200';
         }
     };
 
     const handleDownloadAudit = async (e: React.MouseEvent, docId: string) => {
         e.stopPropagation();
-        // We need full doc for audit trail, fetch it first
         const fullDoc = await SupabaseService.loadDocument(docId);
         if(!fullDoc) return;
 
@@ -57,6 +57,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
+    };
+
+    const handleCreateFromTemplate = async (e: React.MouseEvent, docId: string) => {
+        e.stopPropagation();
+        const templateDoc = await SupabaseService.loadDocument(docId);
+        if (!templateDoc) return;
+
+        // Clone without ID and status
+        const newDoc: DocumentState = {
+            ...templateDoc,
+            id: crypto.randomUUID(),
+            title: `${templateDoc.title} (Copy)`,
+            status: 'draft',
+            updatedAt: Date.now(),
+            auditLog: [{ id: crypto.randomUUID(), timestamp: Date.now(), action: 'created', user: 'Me', details: `Created from template: ${templateDoc.title}` }],
+            ownerId: undefined 
+        };
+
+        if (onImport) onImport(newDoc);
     };
 
     const handleGenerate = async () => {
@@ -89,6 +108,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
         }
     };
 
+    const myDocs = docList.filter(d => d.status !== 'template');
+    const templates = docList.filter(d => d.status === 'template');
+
     return (
         <div className="flex-1 flex overflow-hidden bg-muted/10 dark:bg-zinc-950">
             {/* Main Content */}
@@ -112,47 +134,80 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
                        </div>
                    </div>
                    
-                   <div className="grid gap-4">
-                       {docList.map((doc, i) => (
-                           <Card key={doc.id} className="p-4 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onSelect(doc.id)}>
-                               <div className="flex items-center gap-4">
-                                   <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
-                                       <FileText size={24} />
+                   <Tabs defaultValue="documents" className="w-full">
+                       <TabsList className="mb-6">
+                           <TabsTrigger value="documents" className="text-sm px-6">My Documents</TabsTrigger>
+                           <TabsTrigger value="templates" className="text-sm px-6">Templates</TabsTrigger>
+                       </TabsList>
+
+                       <TabsContent value="documents">
+                           <div className="grid gap-4">
+                               {myDocs.map((doc) => (
+                                   <Card key={doc.id} className="p-4 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer" onClick={() => onSelect(doc.id)}>
+                                       <div className="flex items-center gap-4">
+                                           <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
+                                               <FileText size={24} />
+                                           </div>
+                                           <div>
+                                               <h3 className="font-semibold text-lg">{doc.title}</h3>
+                                               <p className="text-sm text-muted-foreground">Updated {new Date(doc.updated_at).toLocaleDateString()}</p>
+                                           </div>
+                                       </div>
+                                       <div className="flex items-center gap-4">
+                                           <Badge className={getStatusColor(doc.status)} variant="outline">{doc.status.toUpperCase()}</Badge>
+                                           <Button 
+                                              variant="ghost" 
+                                              size="sm" 
+                                              onClick={(e) => handleDownloadAudit(e, doc.id)}
+                                              title="Download Audit Trail"
+                                              className="hidden group-hover:flex"
+                                           >
+                                               <ShieldCheck size={16} className="text-green-600" />
+                                           </Button>
+                                           <Button variant="ghost" size="icon"><MoreHorizontal size={16}/></Button>
+                                       </div>
+                                   </Card>
+                               ))}
+                               {!isLoading && myDocs.length === 0 && (
+                                   <div className="p-12 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-white/50 dark:bg-zinc-900/50">
+                                        <Sparkles size={48} className="mb-4 text-indigo-400 opacity-50" />
+                                        <h3 className="text-lg font-bold text-foreground mb-2">Create your first document</h3>
+                                        <p className="text-center max-w-sm mb-6">Start from scratch or use our Gemini AI engine to build a contract in seconds.</p>
+                                        <Button onClick={() => setShowAIGenerator(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
+                                            <Sparkles size={16} /> Try AI Generator
+                                        </Button>
                                    </div>
-                                   <div>
-                                       <h3 className="font-semibold text-lg">{doc.title}</h3>
-                                       <p className="text-sm text-muted-foreground">Updated {new Date(doc.updated_at).toLocaleDateString()}</p>
-                                   </div>
-                               </div>
-                               <div className="flex items-center gap-4">
-                                   <Badge className={getStatusColor(doc.status)} variant="outline">{doc.status.toUpperCase()}</Badge>
-                                   
-                                   <Button 
-                                      variant="ghost" 
-                                      size="sm" 
-                                      onClick={(e) => handleDownloadAudit(e, doc.id)}
-                                      title="Download Audit Trail"
-                                      className="hidden group-hover:flex"
-                                   >
-                                       <ShieldCheck size={16} className="text-green-600" />
-                                   </Button>
-                                   
-                                   <Button variant="ghost" size="icon"><MoreHorizontal size={16}/></Button>
-                               </div>
-                           </Card>
-                       ))}
-                       
-                       {!isLoading && docList.length === 0 && (
-                           <div className="p-12 border-2 border-dashed rounded-xl flex flex-col items-center justify-center text-muted-foreground bg-white/50 dark:bg-zinc-900/50">
-                                <Sparkles size={48} className="mb-4 text-indigo-400 opacity-50" />
-                                <h3 className="text-lg font-bold text-foreground mb-2">Create your first document</h3>
-                                <p className="text-center max-w-sm mb-6">Start from scratch or use our Gemini AI engine to build a contract in seconds.</p>
-                                <Button onClick={() => setShowAIGenerator(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white">
-                                    <Sparkles size={16} /> Try AI Generator
-                                </Button>
+                               )}
                            </div>
-                       )}
-                   </div>
+                       </TabsContent>
+
+                       <TabsContent value="templates">
+                           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                               {templates.map((doc) => (
+                                   <Card key={doc.id} className="p-6 hover:border-purple-500 transition-colors cursor-pointer group flex flex-col" onClick={() => onSelect(doc.id)}>
+                                       <div className="flex items-start justify-between mb-4">
+                                           <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center rounded-none border border-purple-200">
+                                               <LayoutTemplate size={20} />
+                                           </div>
+                                           <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">TEMPLATE</Badge>
+                                       </div>
+                                       <h3 className="font-bold text-lg mb-2">{doc.title}</h3>
+                                       <p className="text-xs text-muted-foreground mb-6 line-clamp-2">Click to edit this template master.</p>
+                                       <div className="mt-auto">
+                                            <Button size="sm" className="w-full bg-white text-black border-black hover:bg-purple-50 hover:text-purple-700" onClick={(e) => handleCreateFromTemplate(e, doc.id)}>
+                                                <Copy size={14} className="mr-2"/> Create New
+                                            </Button>
+                                       </div>
+                                   </Card>
+                               ))}
+                               {!isLoading && templates.length === 0 && (
+                                    <div className="col-span-full p-12 text-center text-muted-foreground border-2 border-dashed">
+                                        <p>No templates found. Go to Settings in any document to "Save as Template".</p>
+                                    </div>
+                               )}
+                           </div>
+                       </TabsContent>
+                   </Tabs>
                </div>
             </div>
 

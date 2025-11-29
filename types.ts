@@ -1,4 +1,4 @@
-
+import React from 'react';
 
 export enum BlockType {
   TEXT = 'text',
@@ -164,7 +164,7 @@ export type EventType =
   | 'declined' 
   | 'completed' 
   | 'emailed' 
-  | 'downloaded'
+  | 'downloaded' 
   | 'edited'
   | 'sent';
 
@@ -188,8 +188,9 @@ export interface Integration {
 
 export interface DocumentState {
   id?: string;
+  ownerId?: string; // User ID of the document creator
   title: string;
-  status: 'draft' | 'sent' | 'completed' | 'archived';
+  status: 'draft' | 'sent' | 'completed' | 'archived' | 'template';
   description?: string;
   blocks: DocBlock[];
   parties: Party[];
@@ -223,4 +224,23 @@ export interface SubmissionEvents {
     ip_address?: string;
     user_agent?: string;
     created_at?: string;
+}
+
+// --- Editor Specific Types ---
+export type DropPosition = 'before' | 'after' | 'inside' | 'inside-false';
+
+export interface EditorBlockProps {
+  block: DocBlock;
+  formValues: FormValues;
+  isSelected: boolean;
+  parties: Party[];
+  allBlocks?: DocBlock[]; 
+  docSettings?: DocumentSettings; 
+  onSelect: (id: string) => void;
+  onUpdate: (id: string, updates: Partial<DocBlock>) => void;
+  onDelete: (id: string) => void;
+  onDragStart: (e: React.DragEvent, id: string) => void;
+  onDragEnd?: (e: React.DragEvent) => void;
+  onDrop: (e: React.DragEvent, id: string, position: DropPosition) => void;
+  index?: number;
 }

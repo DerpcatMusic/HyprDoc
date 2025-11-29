@@ -1,11 +1,54 @@
+
 import { createClient } from '@supabase/supabase-js';
 import { DocumentState, BlockType, AuditLogEntry, DocBlock } from '../types';
 
 // NOTE: These should be in your .env file
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jlgqpslemxirboufbviq.supabase.co';
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsZ3Fwc2xlbXhpcmJvdWZidmlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNzQyMDUsImV4cCI6MjA3OTk1MDIwNX0.rrP0l2cYZMk5iZBggAEsj7FLp8G01H6e1ChZsc5LlKs';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
+// Only create client if keys exist, otherwise null (triggers offline mode)
+export const supabase = (SUPABASE_URL && SUPABASE_KEY) ? createClient(SUPABASE_URL, SUPABASE_KEY) : null;
+
+// --- Local Storage Helpers ---
+const LS_PREFIX = 'hyprdoc_v1_';
+const LS_INDEX = 'hyprdoc_index';
+
+const LocalStore = {
+    getAll: (): DocMeta[] => {
+        try {
+            return JSON.parse(localStorage.getItem(LS_INDEX) || '[]');
+        } catch { return []; }
+    },
+    save: (doc: DocumentState) => {
+        try {
+            // Save Doc
+            localStorage.setItem(`${LS_PREFIX}${doc.id}`, JSON.stringify(doc));
+            
+            // Update Index
+            const index = LocalStore.getAll();
+            const meta = { id: doc.id!, title: doc.title, updated_at: new Date().toISOString(), status: doc.status };
+            const existingIdx = index.findIndex(i => i.id === doc.id);
+            
+            if (existingIdx >= 0) index[existingIdx] = meta;
+            else index.unshift(meta);
+            
+            localStorage.setItem(LS_INDEX, JSON.stringify(index));
+        } catch (e) {
+            console.error("Local Save Failed", e);
+        }
+    },
+    get: (id: string): DocumentState | null => {
+        try {
+            const data = localStorage.getItem(`${LS_PREFIX}${id}`);
+            return data ? JSON.parse(data) : null;
+        } catch { return null; }
+    },
+    delete: (id: string) => {
+        localStorage.removeItem(`${LS_PREFIX}${id}`);
+        const index = LocalStore.getAll().filter(i => i.id !== id);
+        localStorage.setItem(LS_INDEX, JSON.stringify(index));
+    }
+}
 
 export interface DocMeta {
     id: string;
@@ -53,16 +96,82 @@ const getAllBlocks = (blocks: DocBlock[]): DocBlock[] => {
     return flat;
 };
 
+// --- OTP SIMULATION STORE (In-Memory for Demo) ---
+const otpStore = new Map<string, { code: string; expires: number }>();
+
 /**
- * Supabase Service
+ * Supabase Service with Local Storage Fallback
  */
 export const SupabaseService = {
+    // --- AUTHENTICATION ---
+    auth: {
+        signUp: async (email: string, password: string) => {
+            if (!supabase) return { data: null, error: null }; // Mock success
+            return await supabase.auth.signUp({ email, password });
+        },
+        signIn: async (email: string, password: string) => {
+            if (!supabase) return { data: { user: { id: 'local_user', email } }, error: null }; // Mock success
+            return await supabase.auth.signInWithPassword({ email, password });
+        },
+        signOut: async () => {
+            if (!supabase) return { error: null };
+            return await supabase.auth.signOut();
+        },
+        getUser: async () => {
+            if (!supabase) return { data: { user: { id: 'local_user', email: 'demo@hyprdoc.com' } } };
+            return await supabase.auth.getUser();
+        },
+        getSession: async () => {
+            if (!supabase) return { data: { session: { user: { id: 'local_user' } } } };
+            return await supabase.auth.getSession();
+        },
+        onAuthStateChange: (callback: (event: any, session: any) => void) => {
+            if (!supabase) {
+                // Mock subscription
+                return { data: { subscription: { unsubscribe: () => {} } } };
+            }
+            return supabase.auth.onAuthStateChange(callback);
+        }
+    },
+
+    // --- SECURE ACCESS 2FA ---
+    requestAccessCode: async (docId: string, identifier: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            const code = Math.floor(100000 + Math.random() * 900000).toString();
+            otpStore.set(`${docId}_${identifier}`, { 
+                code, 
+                expires: Date.now() + 5 * 60 * 1000 // 5 mins 
+            });
+            console.log(`%c[SECURE GATEWAY] 🔒 2FA Code for ${identifier}: ${code}`, "color: #00ff00; background: #000; font-size: 14px; padding: 4px;");
+            setTimeout(() => resolve(true), 1000);
+        });
+    },
+
+    verifyAccessCode: async (docId: string, identifier: string, code: string): Promise<boolean> => {
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                const record = otpStore.get(`${docId}_${identifier}`);
+                if (!record || Date.now() > record.expires) {
+                    resolve(false);
+                    return;
+                }
+                if (record.code === code) {
+                    otpStore.delete(`${docId}_${identifier}`);
+                    resolve(true);
+                } else {
+                    resolve(false);
+                }
+            }, 800);
+        });
+    },
+
     /**
      * Upload a signature or image to Supabase Storage
+     * FALLBACK: Returns DataURL (Base64) if storage is unavailable.
      */
     uploadAsset: async (file: Blob | File, path: string): Promise<string | null> => {
         try {
-            if (SUPABASE_URL.includes('xyz')) throw new Error("Supabase not configured");
+            if (!supabase) throw new Error("Offline");
             
             const { data, error } = await supabase.storage
                 .from('assets')
@@ -73,22 +182,22 @@ export const SupabaseService = {
             const { data: { publicUrl } } = supabase.storage.from('assets').getPublicUrl(path);
             return publicUrl;
         } catch (e) {
-            console.error("Upload Error (Mocking fallback)", e);
-            // Fallback for demo environment without real Credentials
-            return URL.createObjectURL(file);
+            console.warn("Storage unavailable, converting to Base64");
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
         }
     },
 
     /**
-     * List Documents
+     * List Documents (Hybrid)
      */
     listDocuments: async (): Promise<DocMeta[]> => {
-        try {
-            if (SUPABASE_URL.includes('xyz')) {
-                // Return mock data if no DB connected
-                return [{ id: SAMPLE_DOC.id!, title: SAMPLE_DOC.title, updated_at: new Date().toISOString(), status: SAMPLE_DOC.status }];
-            }
+        if (!supabase) return LocalStore.getAll();
 
+        try {
             const { data, error } = await supabase
                 .from('documents')
                 .select('id, title, status, updated_at')
@@ -97,18 +206,23 @@ export const SupabaseService = {
             if (error) throw error;
             return data || [];
         } catch (e) {
-            console.warn("Using Offline Mode:", e);
-            return [{ id: SAMPLE_DOC.id!, title: SAMPLE_DOC.title, updated_at: new Date().toISOString(), status: SAMPLE_DOC.status }];
+            console.warn("Supabase fetch failed, using local storage");
+            return LocalStore.getAll();
         }
     },
 
     /**
-     * Load Document
+     * Load Document (Hybrid)
      */
     loadDocument: async (id: string): Promise<DocumentState | null> => {
-        try {
-            if (id === 'doc_sample' || SUPABASE_URL.includes('xyz')) return SAMPLE_DOC;
+        if (id === 'doc_sample') return SAMPLE_DOC;
 
+        // Try Local First for speed/fallback consistency
+        const localDoc = LocalStore.get(id);
+        
+        if (!supabase) return localDoc;
+
+        try {
             const { data, error } = await supabase
                 .from('documents')
                 .select('*')
@@ -117,29 +231,31 @@ export const SupabaseService = {
 
             if (error) throw error;
             
-            // Map JSONB content back to DocumentState
             return {
                 id: data.id,
+                ownerId: data.user_id,
                 title: data.title,
                 status: data.status,
                 updatedAt: new Date(data.updated_at).getTime(),
-                ...data.content // Assuming 'content' column holds blocks, parties, etc.
+                ...data.content
             };
         } catch (e) {
-            console.error("Load Error", e);
+            if (localDoc) return localDoc;
             return null;
         }
     },
 
     /**
-     * Save Document
+     * Save Document (Hybrid)
      */
     saveDocument: async (doc: DocumentState): Promise<void> => {
+        // Always save to local storage as backup/cache
+        LocalStore.save(doc);
+
+        if (!supabase) return;
+
         try {
-            if (SUPABASE_URL.includes('xyz')) {
-                console.log("Mock Saved:", doc.title);
-                return;
-            }
+            const { data: { user } } = await supabase.auth.getUser();
 
             const content = {
                 blocks: doc.blocks,
@@ -150,45 +266,42 @@ export const SupabaseService = {
                 auditLog: doc.auditLog
             };
 
+            const payload: any = {
+                id: doc.id,
+                title: doc.title,
+                status: doc.status,
+                updated_at: new Date().toISOString(),
+                content: content
+            };
+
+            if (user) payload.user_id = user.id; 
+
             const { error } = await supabase
                 .from('documents')
-                .upsert({
-                    id: doc.id,
-                    title: doc.title,
-                    status: doc.status,
-                    updated_at: new Date().toISOString(),
-                    content: content
-                });
+                .upsert(payload);
 
             if (error) throw error;
         } catch (e) {
-            console.error("Save Error", e);
-            throw e;
+            console.error("Cloud save failed (saved locally)", e);
         }
     },
 
     /**
-     * PROCESS SIGNATURE EVENT
-     * Atomic update for signing a block, logging the audit trail, and checking completion.
+     * Process Signature
      */
     signDocumentBlock: async (
         docId: string, 
         blockId: string, 
         signatureData: { url: string, ip: string, userAgent: string, timestamp: number, location?: string }, 
-        partyId: string
+        partyId: string,
+        verifiedIdentifier?: string
     ): Promise<{ success: boolean, updatedDoc?: DocumentState }> => {
         try {
-            // 1. Fetch current doc (Real-time check)
             let doc = await SupabaseService.loadDocument(docId);
             if (!doc) return { success: false };
 
-            // Security check: Prevent signing if document is already finalized
-            if (doc.status === 'completed') {
-                console.warn("Attempt to sign a completed document");
-                return { success: false };
-            }
+            if (doc.status === 'completed') return { success: false };
 
-            // 2. Update the specific block (Recursive search)
             const updateBlocks = (blocks: DocBlock[]): DocBlock[] => {
                 return blocks.map(b => {
                     if (b.id === blockId) {
@@ -206,32 +319,30 @@ export const SupabaseService = {
 
             doc.blocks = updateBlocks(doc.blocks);
 
-            // 3. Add Audit Log Entry
             const partyName = doc.parties.find(p => p.id === partyId)?.name || 'Unknown Signer';
             const locationString = signatureData.location ? ` (Location: ${signatureData.location})` : '';
-            
+            const identifierString = verifiedIdentifier ? ` [Verified: ${verifiedIdentifier}]` : '';
+
             const newLog: AuditLogEntry = {
                 id: crypto.randomUUID(),
                 timestamp: signatureData.timestamp,
                 action: 'signed',
                 user: partyName,
-                details: `Electronic Signature applied by ${partyName}. IP: ${signatureData.ip}${locationString}. Consent granted for electronic transmission.`,
+                details: `Electronic Signature applied by ${partyName}${identifierString}. IP: ${signatureData.ip}${locationString}. Consent granted.`,
                 ipAddress: signatureData.ip,
                 eventData: { 
                     userAgent: signatureData.userAgent,
                     blockId: blockId,
                     integrityCheck: 'PASSED',
                     location: signatureData.location,
-                    consent: true
+                    consent: true,
+                    verifiedIdentifier
                 }
             };
             doc.auditLog = [newLog, ...(doc.auditLog || [])];
 
-            // 4. Check for Document Completion
             const allBlocks = getAllBlocks(doc.blocks);
             const requiredSignatures = allBlocks.filter(b => b.type === BlockType.SIGNATURE && b.required);
-            
-            // Check if every required signature block has content (url)
             const allSigned = requiredSignatures.every(b => b.content && b.content.length > 0);
 
             if (allSigned) {
@@ -244,12 +355,10 @@ export const SupabaseService = {
                     details: 'All required signatures collected. Document Finalized and Locked.'
                 });
             } else {
-                doc.status = 'sent'; 
+                if (doc.status === 'draft') doc.status = 'sent';
             }
 
-            // 5. Persist
             await SupabaseService.saveDocument(doc);
-            
             return { success: true, updatedDoc: doc };
         } catch (e) {
             console.error("Signing Transaction Failed", e);
@@ -257,15 +366,10 @@ export const SupabaseService = {
         }
     },
 
-    /**
-     * Delete Document
-     */
     deleteDocument: async (id: string): Promise<void> => {
-        try {
-            if (SUPABASE_URL.includes('xyz')) return;
+        LocalStore.delete(id);
+        if (supabase) {
             await supabase.from('documents').delete().eq('id', id);
-        } catch (e) {
-            console.error("Delete Error", e);
         }
     }
 };
