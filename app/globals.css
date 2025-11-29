@@ -4,233 +4,51 @@
 
 /* CSS Custom Properties for Design Tokens */
 :root {
-  --primary: 59 130 246; /* blue-500 */
+  --primary: 59 130 246;
   --primary-foreground: 255 255 255;
-  --secondary: 241 245 249; /* slate-100 */
-  --secondary-foreground: 15 23 42; /* slate-800 */
-  --accent: 241 245 249; /* slate-100 */
-  --accent-foreground: 15 23 42; /* slate-800 */
-  --destructive: 239 68 68; /* red-500 */
+  --secondary: 241 245 249;
+  --secondary-foreground: 15 23 42;
+  --accent: 241 245 249;
+  --accent-foreground: 15 23 42;
+  --destructive: 239 68 68;
   --destructive-foreground: 255 255 255;
-  --border: 226 232 240; /* slate-200 */
-  --input: 226 232 240; /* slate-200 */
-  --ring: 59 130 246; /* blue-500 */
+  --border: 226 232 240;
+  --input: 226 232 240;
+  --ring: 59 130 246;
   --background: 255 255 255;
-  --foreground: 15 23 42; /* slate-800 */
-  --muted: 241 245 249; /* slate-100 */
-  --muted-foreground: 100 116 139; /* slate-500 */
+  --foreground: 15 23 42;
+  --muted: 241 245 249;
+  --muted-foreground: 100 116 139;
   --popover: 255 255 255;
-  --popover-foreground: 15 23 42; /* slate-800 */
+  --popover-foreground: 15 23 42;
   --card: 255 255 255;
-  --card-foreground: 15 23 42; /* slate-800 */
+  --card-foreground: 15 23 42;
 }
 
-/* Dark theme */
 .dark {
-  --primary: 59 130 246; /* blue-500 */
+  --primary: 59 130 246;
   --primary-foreground: 255 255 255;
-  --secondary: 30 41 59; /* slate-800 */
-  --secondary-foreground: 248 250 252; /* slate-50 */
-  --accent: 30 41 59; /* slate-800 */
-  --accent-foreground: 248 250 252; /* slate-50 */
-  --destructive: 239 68 68; /* red-500 */
+  --secondary: 30 41 59;
+  --secondary-foreground: 248 250 252;
+  --accent: 30 41 59;
+  --accent-foreground: 248 250 252;
+  --destructive: 239 68 68;
   --destructive-foreground: 255 255 255;
-  --border: 30 41 59; /* slate-800 */
-  --input: 30 41 59; /* slate-800 */
-  --ring: 59 130 246; /* blue-500 */
-  --background: 2 6 23; /* slate-950 */
-  --foreground: 248 250 252; /* slate-50 */
-  --muted: 30 41 59; /* slate-800 */
-  --muted-foreground: 148 163 184; /* slate-400 */
-  --popover: 2 6 23; /* slate-950 */
-  --popover-foreground: 248 250 252; /* slate-50 */
-  --card: 2 6 23; /* slate-950 */
-  --card-foreground: 248 250 252; /* slate-50 */
+  --border: 30 41 59;
+  --input: 30 41 59;
+  --ring: 59 130 246;
+  --background: 2 6 23;
+  --foreground: 248 250 252;
+  --muted: 30 41 59;
+  --muted-foreground: 148 163 184;
+  --popover: 2 6 23;
+  --popover-foreground: 248 250 252;
+  --card: 2 6 23;
+  --card-foreground: 248 250 252;
 }
 
-/* Base Styles */
-@layer base {
-  * {
-    @apply border-border;
-  }
-  
-  body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
-  }
-}
-
-/* Component Styles */
-@layer components {
-  /* Button Component */
-  .btn {
-    @apply inline-flex items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:opacity-50 disabled:pointer-events-none;
-  }
-  
-  .btn-primary {
-    @apply btn bg-primary text-primary-foreground hover:bg-primary/90;
-    @apply h-10 py-2 px-4;
-  }
-  
-  .btn-secondary {
-    @apply btn bg-secondary text-secondary-foreground hover:bg-secondary/80;
-    @apply h-10 py-2 px-4;
-  }
-  
-  .btn-destructive {
-    @apply btn bg-destructive text-destructive-foreground hover:bg-destructive/90;
-    @apply h-10 py-2 px-4;
-  }
-  
-  .btn-outline {
-    @apply btn border border-input hover:bg-accent hover:text-accent-foreground;
-    @apply h-10 py-2 px-4;
-  }
-  
-  .btn-ghost {
-    @apply btn hover:bg-accent hover:text-accent-foreground;
-    @apply h-10 py-2 px-4;
-  }
-  
-  .btn-sm {
-    @apply h-9 px-3;
-  }
-  
-  .btn-lg {
-    @apply h-11 px-8;
-  }
-  
-  /* Input Component */
-  .input {
-    @apply flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50;
-  }
-  
-  /* Card Component */
-  .card {
-    @apply rounded-lg border bg-card text-card-foreground shadow-sm;
-  }
-  
-  .card-header {
-    @apply flex flex-col space-y-1.5 p-6;
-  }
-  
-  .card-title {
-    @apply text-2xl font-semibold leading-none tracking-tight;
-  }
-  
-  .card-description {
-    @apply text-sm text-muted-foreground;
-  }
-  
-  .card-content {
-    @apply p-6 pt-0;
-  }
-  
-  .card-footer {
-    @apply flex items-center p-6 pt-0;
-  }
-  
-  /* Loading Spinner */
-  .spinner {
-    @apply animate-spin rounded-full h-4 w-4 border-2 border-current border-t-transparent;
-  }
-  
-  /* Toast Animations */
-  @keyframes slide-in-right {
-    from {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-    to {
-      transform: translateX(0);
-      opacity: 1;
-    }
-  }
-  
-  @keyframes slide-out-right {
-    from {
-      transform: translateX(0);
-      opacity: 1;
-    }
-    to {
-      transform: translateX(100%);
-      opacity: 0;
-    }
-  }
-  
-  .toast-enter {
-    animation: slide-in-right 0.3s ease-out;
-  }
-  
-  .toast-exit {
-    animation: slide-out-right 0.3s ease-in;
-  }
-  
-  /* Focus Visible Styles */
-  .focus-visible:focus-visible {
-    @apply outline-none ring-2 ring-ring ring-offset-2;
-  }
-}
-
-/* Utility Classes */
-@layer utilities {
-  /* Text utilities */
-  .text-balance {
-    text-wrap: balance;
-  }
-  
-  /* Screen reader only */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
-  }
-}
-
-/* Print Styles */
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  
-  .print-break-inside-avoid {
-    break-inside: avoid;
-  }
-  
-  .print-break-after {
-    break-after: page;
-  }
-}
-
-/* High contrast mode support */
-@media (prefers-contrast: high) {
-  .btn-primary {
-    @apply border-2 border-black;
-  }
-  
-  .btn-outline {
-    @apply border-2 border-current;
-  }
-}
-
-/* Reduced motion support */
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-  
-  .spinner {
-    @apply animate-none;
-  }
+body {
+  background: rgb(var(--background));
+  color: rgb(var(--foreground));
+  font-feature-settings: 'rlig' 1, 'calt' 1;
 }

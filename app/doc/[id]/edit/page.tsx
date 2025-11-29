@@ -237,26 +237,24 @@ export default function DocumentEditorPage() {
             
             {/* SEND MODAL */}
             <Dialog open={showSendModal} onOpenChange={setShowSendModal}>
-                <Dialog>
-                    <div className="p-8 bg-muted/10 border-2 border-dashed border-black dark:border-white text-sm text-center">
-                        <p className="font-mono text-xs mb-6 bg-white dark:bg-black border-2 border-black dark:border-white p-4 select-all shadow-sharp flex justify-between items-center">
-                            <span className="truncate mr-4 text-primary">
-                                {typeof window !== 'undefined' ? window.location.origin : ''}/s/{doc.id || 'draft-id'}
-                            </span>
-                            <span className="text-[9px] bg-black text-white px-2 py-1 font-bold cursor-pointer hover:bg-primary dark:bg-white dark:text-black">COPY</span>
-                        </p>
-                        <p className="text-muted-foreground text-[10px] font-mono uppercase tracking-widest">Recipient requires authentication</p>
-                    </div>
-                    <div className="flex justify-end gap-2 pt-4">
-                        <Button variant="outline" onClick={() => setShowSendModal(false)}>Cancel</Button>
-                        <Button onClick={() => { 
-                            setDoc(prev => ({ ...prev, status: 'sent', snapshot: prev.blocks })); 
-                            setShowSendModal(false); 
-                            addAuditLog('sent', 'Document snapshot created');
-                        }}>
-                            Generate Link & Snapshot
-                        </Button>
-                    </div>
+                <div className="p-8 bg-muted/10 border-2 border-dashed border-black dark:border-white text-sm text-center">
+                    <p className="font-mono text-xs mb-6 bg-white dark:bg-black border-2 border-black dark:border-white p-4 select-all shadow-sharp flex justify-between items-center">
+                        <span className="truncate mr-4 text-primary">
+                            {typeof window !== 'undefined' ? window.location.origin : ''}/s/{doc.id || 'draft-id'}
+                        </span>
+                        <span className="text-[9px] bg-black text-white px-2 py-1 font-bold cursor-pointer hover:bg-primary dark:bg-white dark:text-black">COPY</span>
+                    </p>
+                    <p className="text-muted-foreground text-[10px] font-mono uppercase tracking-widest">Recipient requires authentication</p>
+                </div>
+                <div className="flex justify-end gap-2 pt-4">
+                    <Button variant="outline" onClick={() => setShowSendModal(false)}>Cancel</Button>
+                    <Button onClick={() => { 
+                        setDoc(prev => ({ ...prev, status: 'sent', snapshot: prev.blocks })); 
+                        setShowSendModal(false); 
+                        addAuditLog('sent', 'Document snapshot created');
+                    }}>
+                        Generate Link & Snapshot
+                    </Button>
                 </div>
             </Dialog>
         </div>

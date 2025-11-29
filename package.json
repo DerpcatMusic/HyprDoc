@@ -11,22 +11,23 @@
     "type-check": "bun run tsc --noEmit"
   },
   "dependencies": {
-    "react": "latest",
-    "react-dom": "latest",
-    "next": "latest",
+    "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "latest",
+    "@tiptap/extension-placeholder": "latest",
     "@tiptap/react": "latest",
     "@tiptap/starter-kit": "latest",
-    "@tiptap/extension-placeholder": "latest",
-    "lucide-react": "latest",
     "clsx": "latest",
-    "tailwind-merge": "latest",
+    "lucide-react": "latest",
+    "next": "latest",
     "next-themes": "latest",
-    "zustand": "latest",
-    "sonner": "latest",
-    "pdfjs-dist": "latest",
     "pdf-lib": "latest",
-    "signature_pad": "latest"
+    "pdfjs-dist": "latest",
+    "react": "latest",
+    "react-dom": "latest",
+    "signature_pad": "latest",
+    "sonner": "latest",
+    "tailwind-merge": "latest",
+    "zustand": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.17",
