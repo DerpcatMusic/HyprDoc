@@ -1,3 +1,4 @@
+'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { DocumentState, DocBlock, BlockType, AuditLogEntry, Party, DocumentSettings, EventType } from '../types';
