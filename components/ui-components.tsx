@@ -255,19 +255,40 @@ export const TabsContent = ({ value, className, children }: { value: string, cla
     );
 };
 
-// --- Dialog Component ---
+// --- Dialog Component (NATIVE HTML5) ---
+
 export const Dialog = ({ open, onOpenChange, children }: { open: boolean, onOpenChange: (open: boolean) => void, children?: React.ReactNode }) => {
-    if (!open) return null;
+    const ref = useRef<HTMLDialogElement>(null);
+
+    useEffect(() => {
+        if (open) {
+            ref.current?.showModal();
+        } else {
+            ref.current?.close();
+        }
+    }, [open]);
+
+    const handleClose = () => {
+        onOpenChange(false);
+    };
+
+    const handleBackdropClick = (e: React.MouseEvent<HTMLDialogElement>) => {
+        if (e.target === ref.current) {
+            handleClose();
+        }
+    };
+
     return (
-        <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div 
-                className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-in fade-in duration-200" 
-                onClick={() => onOpenChange(false)}
-            />
-            <div className="relative z-50 animate-in zoom-in-95 duration-200">
+        <dialog
+            ref={ref}
+            onClose={handleClose}
+            onClick={handleBackdropClick}
+            className="backdrop:bg-black/50 backdrop:backdrop-blur-sm bg-transparent p-0 m-auto shadow-none outline-none open:animate-in open:fade-in open:zoom-in-95 duration-200"
+        >
+            <div className="relative z-50">
                 {children}
             </div>
-        </div>
+        </dialog>
     );
 };
 

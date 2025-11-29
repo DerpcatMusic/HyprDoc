@@ -2,9 +2,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { DocBlock, Party, BlockType, DocumentSettings, Variable } from '../types';
 import { EditorBlock } from './EditorBlock';
-import { Button, Input, ColorPicker, cn } from './ui-components';
-import { FileText, Grid, Plus, Settings2, Play, Lock, Unlock, Magnet, RotateCcw, RotateCw } from 'lucide-react';
+import { Button, Input, ColorPicker, cn, Dialog, DialogContent, DialogHeader, DialogTitle } from './ui-components';
+import { FileText, Grid, Plus, Settings2, Play, Lock, Unlock, Magnet, RotateCcw, RotateCw, Save, Cog, Users, ChevronDown } from 'lucide-react';
 import { useDocument } from '../context/DocumentContext';
+import { SettingsView } from './views/SettingsView';
+import { PartiesList } from './PartiesList';
 
 interface EditorCanvasProps {
     docTitle: string;
@@ -13,9 +15,9 @@ interface EditorCanvasProps {
     parties: Party[];
     variables?: Variable[];
     selectedBlockId: string | null;
-    showPartyManager: boolean;
+    showPartyManager?: boolean; // Deprecated
     onTitleChange: (t: string) => void;
-    onTogglePartyManager: (show: boolean) => void;
+    onTogglePartyManager?: (show: boolean) => void; // Deprecated
     onPreview: () => void;
     onSend: () => void;
     onSelectBlock: (id: string) => void;
@@ -28,15 +30,19 @@ interface EditorCanvasProps {
 }
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
-    docTitle, docSettings, blocks, parties, selectedBlockId, showPartyManager,
-    onTitleChange, onTogglePartyManager, onPreview, onSelectBlock,
+    docTitle, docSettings, blocks, parties, selectedBlockId,
+    onTitleChange, onPreview, onSelectBlock,
     onUpdateBlock, onDeleteBlock, onAddBlock, onDropBlock, onUpdateParty
 }) => {
-    const { updateSettings, moveBlock, addParty, removeParty, addBlock, undo, redo, canUndo, canRedo } = useDocument();
+    const { updateSettings, moveBlock, addParty, removeParty, addBlock, undo, redo, canUndo, canRedo, saveStatus, saveNow, updateParties } = useDocument();
     const [showMargins, setShowMargins] = useState(false); 
     const [snapSize, setSnapSize] = useState(5); 
     const [draggingMargin, setDraggingMargin] = useState<'top' | 'bottom' | 'left' | 'right' | null>(null);
+    const [showDocSettings, setShowDocSettings] = useState(false);
+    const [showPartiesPopover, setShowPartiesPopover] = useState(false);
+    
     const canvasRef = useRef<HTMLDivElement>(null);
+    const partiesButtonRef = useRef<HTMLButtonElement>(null);
     const margins = docSettings?.margins || { top: 80, bottom: 80, left: 80, right: 80 };
     const mirrorMargins = docSettings?.mirrorMargins || false;
 
@@ -56,6 +62,20 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
+
+    // Close parties popover on click outside
+    useEffect(() => {
+        const handleClickOutside = (e: MouseEvent) => {
+            if (showPartiesPopover && 
+                partiesButtonRef.current && 
+                !partiesButtonRef.current.contains(e.target as Node) &&
+                !(e.target as Element).closest('.parties-popover')) {
+                setShowPartiesPopover(false);
+            }
+        };
+        window.addEventListener('mousedown', handleClickOutside);
+        return () => window.removeEventListener('mousedown', handleClickOutside);
+    }, [showPartiesPopover]);
 
     const handleDragStartBlock = (e: React.DragEvent, id: string) => {
         e.dataTransfer.setData('application/hyprdoc-block-id', id);
@@ -151,6 +171,15 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         }
     };
 
+    const handleAddParty = () => {
+        addParty({
+            id: crypto.randomUUID(),
+            name: 'New Signer',
+            color: '#' + Math.floor(Math.random()*16777215).toString(16),
+            initials: 'NS'
+        });
+    };
+
     return (
         <div 
             className="flex-1 flex flex-col bg-muted/10 relative z-0 h-full overflow-hidden" 
@@ -176,6 +205,29 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                       <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
 
                       <div className="flex items-center gap-2">
+                            <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-8 px-2 gap-2 border-2 border-transparent hover:border-black"
+                                onClick={saveNow}
+                                title="Force Save"
+                            >
+                                <Save size={14} />
+                                {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'unsaved' ? 'Unsaved' : 'Saved'}
+                            </Button>
+                            
+                            <Button
+                                size="sm"
+                                variant="ghost"
+                                className="h-8 w-8 p-0 border-2 border-transparent hover:border-black"
+                                onClick={() => setShowDocSettings(true)}
+                                title="Document Settings"
+                            >
+                                <Cog size={16} />
+                            </Button>
+
+                            <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-2" />
+
                             <button 
                                 onClick={undo} 
                                 disabled={!canUndo} 
@@ -237,23 +289,41 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                       </div>
                   </div>
                   
-                  <div className="flex items-center gap-4">
+                  <div className="flex items-center gap-4 relative">
                       <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-mono font-bold uppercase text-muted-foreground mr-1">Parties:</span>
-                        <div className="flex -space-x-1">
-                            {parties.map(p => (
-                                <div key={p.id} className="w-6 h-6 border border-black flex items-center justify-center text-[9px] font-bold font-mono" style={{ backgroundColor: p.color }}>
-                                    {p.initials}
-                                </div>
-                            ))}
+                        <span className="text-[9px] font-mono font-bold uppercase text-muted-foreground mr-1 hidden lg:inline">Signers:</span>
+                        <div className="flex items-center bg-muted/10 border border-black/10 rounded-sm pl-1 pr-1">
+                            <div className="flex -space-x-1 mr-2">
+                                {parties.map(p => (
+                                    <div key={p.id} className="w-6 h-6 border border-black flex items-center justify-center text-[9px] font-bold font-mono text-white shadow-sm" style={{ backgroundColor: p.color }}>
+                                        {p.initials}
+                                    </div>
+                                ))}
+                            </div>
                             <button 
-                                onClick={() => onTogglePartyManager(true)}
-                                className="w-6 h-6 bg-white dark:bg-black border border-black dark:border-white flex items-center justify-center hover:bg-black hover:text-white transition-colors"
+                                ref={partiesButtonRef}
+                                onClick={() => setShowPartiesPopover(!showPartiesPopover)}
+                                className={cn(
+                                    "h-6 px-1 flex items-center gap-1 hover:bg-black hover:text-white transition-colors text-[10px] font-bold uppercase",
+                                    showPartiesPopover ? "bg-black text-white" : ""
+                                )}
                             >
-                                <Settings2 size={12} />
+                                <Users size={12} /> <ChevronDown size={10} />
                             </button>
                         </div>
                       </div>
+
+                      {/* PARTIES POPOVER */}
+                      {showPartiesPopover && (
+                        <div className="absolute top-full right-0 mt-2 z-50 parties-popover">
+                            <PartiesList 
+                                parties={parties} 
+                                onUpdate={onUpdateParty} 
+                                onAdd={handleAddParty} 
+                                onRemove={removeParty}
+                            />
+                        </div>
+                      )}
 
                       <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
 
@@ -337,6 +407,23 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                     onDragOver={(e) => e.preventDefault()}
                   />
               </div>
+
+            {/* DOCUMENT SETTINGS MODAL */}
+            <Dialog open={showDocSettings} onOpenChange={setShowDocSettings}>
+                <DialogContent className="max-w-4xl h-[600px] p-0 flex flex-col overflow-hidden">
+                    <DialogHeader className="p-6 pb-2 shrink-0">
+                        <DialogTitle>Document Configuration</DialogTitle>
+                    </DialogHeader>
+                    <SettingsView 
+                        mode="document" 
+                        settings={docSettings} 
+                        onUpdate={updateSettings} 
+                        parties={parties}
+                        onUpdateParties={updateParties}
+                        isModal={true}
+                    />
+                </DialogContent>
+            </Dialog>
         </div>
     )
 };

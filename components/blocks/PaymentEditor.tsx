@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { EditorBlockProps } from '../../types';
+import { EditorBlockProps, DocBlock, BlockType } from '../../types';
 import { CreditCard, ExternalLink, Trash2, CheckCircle2, AlertTriangle } from 'lucide-react';
 import { cn, Input, Label, Switch, Badge } from '../ui-components';
 import { useBlockDrag } from '../../hooks/useBlockDrag';
@@ -52,6 +52,17 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
         return false;
     };
 
+    const getAllNumericBlocks = (blocks: DocBlock[]): DocBlock[] => {
+        let numeric: DocBlock[] = [];
+        blocks.forEach(b => {
+            if (b.type === BlockType.NUMBER && b.variableName) numeric.push(b);
+            if (b.children) numeric = [...numeric, ...getAllNumericBlocks(b.children)];
+            if (b.elseChildren) numeric = [...numeric, ...getAllNumericBlocks(b.elseChildren)];
+        });
+        return numeric;
+    };
+
+    const numericBlocks = getAllNumericBlocks(doc.blocks);
     const numericVariables = doc.variables.filter(v => !isNaN(parseFloat(v.value)));
 
     const SelectedHeader = ({ label, onDelete }: { label: string, onDelete: () => void }) => (
@@ -115,7 +126,12 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
                             onChange={(e) => handleSettingChange('variableName', e.target.value)}
                          >
                              <option value="" disabled>Select Variable...</option>
-                             {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
+                             <optgroup label="Global Variables">
+                                 {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
+                             </optgroup>
+                             <optgroup label="Document Fields">
+                                 {numericBlocks.map(b => <option key={b.id} value={b.variableName}>{b.label || 'Untitled'} ({b.variableName})</option>)}
+                             </optgroup>
                          </select>
                      </div>
                  )}
@@ -134,7 +150,12 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
                                 onChange={(e) => handleSettingChange('variableName', e.target.value)}
                              >
                                  <option value="" disabled>Select Total...</option>
-                                 {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
+                                 <optgroup label="Global Variables">
+                                     {numericVariables.map(v => <option key={v.id} value={v.key}>{v.key} ({v.value})</option>)}
+                                 </optgroup>
+                                 <optgroup label="Document Fields">
+                                     {numericBlocks.map(b => <option key={b.id} value={b.variableName}>{b.label || 'Untitled'} ({b.variableName})</option>)}
+                                 </optgroup>
                              </select>
                          </div>
                      </div>

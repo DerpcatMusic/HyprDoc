@@ -1,3 +1,4 @@
+
 import React from 'react';
 
 export enum BlockType {
@@ -138,6 +139,18 @@ export interface GlobalPaymentSettings {
     paypal?: { clientId?: string; email?: string; environment?: 'sandbox' | 'production' };
 }
 
+export interface UserGlobalSettings {
+    apiKeys?: {
+        openai?: string;
+        stripePublishable?: string;
+        googleMaps?: string;
+    };
+    profile?: {
+        companyName?: string;
+        logoUrl?: string;
+    }
+}
+
 export interface DocumentSettings {
     brandColor?: string;
     logoUrl?: string;
@@ -175,7 +188,7 @@ export interface AuditLogEntry {
     user: string;
     details?: string;
     ipAddress?: string;
-    eventData?: Record<string, any>;
+    eventData?: Record<string, string | number | boolean | null | undefined | object>;
 }
 
 export interface Integration {
@@ -213,14 +226,17 @@ export interface Template {
     createdAt: number;
 }
 
-export type FormValues = Record<string, any>;
+// Replace generic 'any' with robust union type
+export type FormValue = string | number | boolean | null | string[] | undefined;
+export type FormValues = Record<string, FormValue>;
+
 export interface SubmissionEvents {
     // Defines structure for submission_events table
     id?: string;
     document_id: string;
     submitter_id?: string;
     event_type: EventType;
-    event_data?: Record<string, any>;
+    event_data?: Record<string, FormValue>;
     ip_address?: string;
     user_agent?: string;
     created_at?: string;

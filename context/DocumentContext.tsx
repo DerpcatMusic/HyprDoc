@@ -39,6 +39,7 @@ interface DocumentContextType {
     canRedo: boolean;
     
     uploadAsset: (file: Blob, path: string) => Promise<string | null>;
+    saveNow: () => Promise<void>;
 }
 
 const DocumentContext = createContext<DocumentContextType | undefined>(undefined);
@@ -101,6 +102,17 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
         return () => clearTimeout(timer);
     }, [doc]);
+
+    const saveNow = async () => {
+        if (!doc.id) return;
+        setSaveStatus('saving');
+        try {
+            await SupabaseService.saveDocument(doc);
+            setSaveStatus('saved');
+        } catch (e) {
+            setSaveStatus('error');
+        }
+    };
 
     // Hashing Logic
     useEffect(() => {
@@ -327,7 +339,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
             updateSettings, addAuditLog,
             updateParties, updateParty, addParty, removeParty,
             undo, redo, canUndo: past.length > 0, canRedo: future.length > 0,
-            uploadAsset
+            uploadAsset, saveNow
         }}>
             {children}
         </DocumentContext.Provider>

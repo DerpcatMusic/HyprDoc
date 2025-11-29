@@ -28,13 +28,13 @@ interface ViewerProps {
 // --- Helper Components ---
 
 const PartyWrapper: React.FC<{ children: React.ReactNode; assignedTo?: Party; locked?: boolean; lockedBy?: string; id?: string }> = ({ children, assignedTo, locked, lockedBy, id }) => {
-    if (!assignedTo) return <div id={id} className="my-3 relative group">{children}</div>;
+    if (!assignedTo) return <div id={id} className="my-4 relative group">{children}</div>;
     return (
-        <div id={id} className="my-3 relative pl-4 border-l-4 transition-all group scroll-mt-32 rounded-none" style={{ borderLeftColor: assignedTo.color }}>
+        <div id={id} className="my-4 relative pl-4 border-l-4 transition-all group scroll-mt-32 rounded-none" style={{ borderLeftColor: assignedTo.color }}>
             {children}
             {locked && (
-                <div className="absolute inset-0 z-10 flex items-center justify-center">
-                    <div className="bg-background/90 dark:bg-zinc-900/90 border border-muted p-2 rounded-none shadow-sm flex items-center gap-2 text-xs font-semibold text-muted-foreground backdrop-blur-sm uppercase tracking-wider font-mono">
+                <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/50 dark:bg-black/50 backdrop-blur-[1px]">
+                    <div className="bg-background/90 dark:bg-zinc-900/90 border-2 border-muted p-2 rounded-none shadow-sharp flex items-center gap-2 text-xs font-semibold text-muted-foreground backdrop-blur-md uppercase tracking-wider font-mono">
                         <Lock size={12} /> Waiting for {lockedBy}
                     </div>
                 </div>
@@ -50,7 +50,8 @@ const CurrencyWidget = ({ block, formValues, userPrefs, onPrefChange }: { block:
       const baseAmount = useMemo(() => {
           if (block.currencySettings?.amountType === 'field' && block.currencySettings.sourceFieldId) {
                 const sourceVal = formValues[block.currencySettings.sourceFieldId];
-                return typeof sourceVal === 'number' ? sourceVal : parseFloat(sourceVal) || 0;
+                if (typeof sourceVal === 'number') return sourceVal;
+                return parseFloat(String(sourceVal)) || 0;
           }
           return block.currencySettings?.amount || 0;
       }, [block.currencySettings, formValues]);
@@ -65,17 +66,21 @@ const CurrencyWidget = ({ block, formValues, userPrefs, onPrefChange }: { block:
           return () => { mounted = false; };
       }, [baseCurrency, targetCurrency]);
 
-      if (!block.currencySettings) return <div className="text-red-500 text-xs">Invalid Config</div>;
+      if (!block.currencySettings) return <div className="text-red-500 text-xs font-bold font-mono border border-red-200 bg-red-50 p-2">INVALID CONFIG</div>;
       const convertedAmount = rate !== null ? baseAmount * rate : 0;
 
       return (
-            <div className="flex items-center gap-4 p-3 bg-muted/20 rounded-none border-2 border-black dark:border-zinc-700">
+            <div className="flex items-center gap-4 p-4 bg-white dark:bg-black border-2 border-black dark:border-white shadow-sm">
                 <div className="flex-1">
-                    <div className="text-2xl font-bold tracking-tighter font-mono">{loading ? '...' : new Intl.NumberFormat('en-US', { style: 'currency', currency: targetCurrency }).format(convertedAmount)}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5 font-mono">{loading ? 'Fetching live rates...' : `1 ${baseCurrency} = ${rate?.toFixed(4)} ${targetCurrency}`}</div>
+                    <div className="text-2xl font-black tracking-tighter font-mono">{loading ? '...' : new Intl.NumberFormat('en-US', { style: 'currency', currency: targetCurrency }).format(convertedAmount)}</div>
+                    <div className="text-[10px] text-muted-foreground mt-1 font-mono uppercase tracking-wide">{loading ? 'FETCHING RATES...' : `1 ${baseCurrency} = ${rate?.toFixed(4)} ${targetCurrency}`}</div>
                 </div>
                 <div>
-                    <select className="h-8 rounded-none border border-input bg-background px-2 py-1 text-xs shadow-sm dark:bg-black dark:border-zinc-700" value={targetCurrency} onChange={(e) => onPrefChange(block.id, e.target.value)}>
+                    <select 
+                        className="h-10 rounded-none border-2 border-black bg-transparent px-3 py-1 text-xs font-bold uppercase shadow-none focus:shadow-sharp transition-shadow cursor-pointer dark:border-white dark:bg-black dark:text-white" 
+                        value={targetCurrency} 
+                        onChange={(e) => onPrefChange(block.id, e.target.value)}
+                    >
                         {SUPPORTED_CURRENCIES.map(c => <option key={c.code} value={c.code}>{c.flag} {c.code}</option>)}
                     </select>
                 </div>
@@ -83,7 +88,7 @@ const CurrencyWidget = ({ block, formValues, userPrefs, onPrefChange }: { block:
       );
 };
 
-const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSettings }: { block: DocBlock, formValues: FormValues, globalVariables: Variable[], docHash?: string, docSettings?: DocumentSettings }) => {
+const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSettings, allBlocks }: { block: DocBlock, formValues: FormValues, globalVariables: Variable[], docHash?: string, docSettings?: DocumentSettings, allBlocks: DocBlock[] }) => {
     const settings = block.paymentSettings;
     const globalGateways = docSettings?.paymentGateways;
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
@@ -104,8 +109,8 @@ const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSetting
     }, [effectiveProviders, selectedProvider]);
 
     const amount = useMemo(() => {
-        return PaymentService.calculateAmount(settings, formValues, globalVariables);
-    }, [settings, formValues, globalVariables]);
+        return PaymentService.calculateAmount(settings, formValues, globalVariables, allBlocks);
+    }, [settings, formValues, globalVariables, allBlocks]);
 
     const handlePay = async () => {
         setStatus('processing');
@@ -137,7 +142,7 @@ const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSetting
 
     if (status === 'success') {
         return (
-            <div className="p-6 bg-green-50 border-2 border-green-200 text-green-800 flex flex-col items-center justify-center gap-2">
+            <div className="p-6 bg-green-50 border-2 border-green-600 text-green-800 flex flex-col items-center justify-center gap-2 shadow-sharp">
                 <CheckCircle2 size={32} />
                 <span className="font-bold uppercase tracking-wider">Payment Complete</span>
                 <span className="font-mono text-sm">{formatCurrency(amount, settings.currency || 'USD')} paid via {selectedProvider}.</span>
@@ -146,14 +151,17 @@ const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSetting
     }
     
     return (
-        <div className="border-2 border-black dark:border-zinc-700 bg-card p-4 rounded-none shadow-sm">
-             <div className="flex justify-between items-end mb-4 border-b pb-4 dark:border-zinc-700">
+        <div className="border-2 border-black dark:border-white bg-card p-6 rounded-none shadow-sm hover:shadow-sharp transition-shadow">
+             <div className="flex justify-between items-end mb-4 border-b-2 border-black/10 pb-4 dark:border-white/10">
                  <div>
-                     <div className="text-[10px] font-bold uppercase text-muted-foreground font-mono">Amount Due</div>
-                     <div className="text-2xl font-black font-mono tracking-tight">{formatCurrency(amount, settings.currency || 'USD')}</div>
+                     <div className="text-[10px] font-bold uppercase text-muted-foreground font-mono tracking-widest mb-1">Amount Due</div>
+                     <div className="text-3xl font-black font-mono tracking-tighter">{formatCurrency(amount, settings.currency || 'USD')}</div>
                  </div>
-                 <Button size="sm" onClick={handlePay} disabled={status === 'processing'}>Pay Now</Button>
+                 <Button size="lg" onClick={handlePay} disabled={status === 'processing'} className="h-12 px-8 text-base">
+                    {status === 'processing' ? 'Processing...' : 'Pay Now'}
+                 </Button>
              </div>
+             {/* Provider Selection could go here if > 1 provider */}
         </div>
     );
 };
@@ -193,6 +201,13 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
     const isLocked = documentCompleted || (assignedParty && assignedParty.id !== simulatedPartyId);
     const isActive = index === activeFieldIndex;
 
+    // Common Input Styles to ensure consistency
+    const commonInputClass = cn(
+        "font-inherit border-2 border-black/20 focus:border-black dark:border-white/20 dark:focus:border-white rounded-none shadow-none focus:shadow-sharp transition-all bg-transparent px-3 py-2",
+        isActive && "border-primary ring-1 ring-primary focus:border-primary",
+        isLocked && "opacity-50 cursor-not-allowed bg-muted/20"
+    );
+
     // Structural Blocks
     if (block.type === BlockType.TEXT) return (
         <PartyWrapper id={uniqueId}>
@@ -205,7 +220,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
     
     if (block.type === BlockType.COLUMNS) return (
         <PartyWrapper id={uniqueId}>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 {block.children?.map(col => (
                     <div key={col.id} className="flex flex-col gap-4">{col.children?.map((child, ci) => renderRecursive(child, -1, idPrefix))}</div>
                 ))}
@@ -217,16 +232,16 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
         const rowCount = (formValues[uniqueId] as number) || 1;
         return (
             <PartyWrapper id={uniqueId}>
-                 <div className="space-y-4 border-l-4 border-indigo-500/20 pl-4 py-2">
-                    <Label className="text-indigo-600 dark:text-indigo-400 flex items-center gap-2 mb-2"><Repeat size={14} /> {block.label || "Repeating Group"}</Label>
+                 <div className="space-y-4 border-l-4 border-black/10 dark:border-white/10 pl-6 py-2">
+                    <Label className="flex items-center gap-2 mb-2 text-primary font-black"><Repeat size={14} /> {block.label || "Repeating Group"}</Label>
                     {Array.from({ length: rowCount }).map((_, rIndex) => (
-                        <div key={rIndex} className="p-4 border-2 border-dashed border-indigo-200 dark:border-indigo-900 rounded-lg relative bg-indigo-50/20">
-                            <div className="absolute top-2 right-2 text-[10px] font-mono text-indigo-400 font-bold uppercase">Item {rIndex + 1}</div>
-                            {block.children?.map(child => <div key={child.id} className="mb-3 last:mb-0">{renderRecursive(child, -1, `${uniqueId}_${rIndex}_`)}</div>)}
-                            {rowCount > 1 && !isLocked && <button className="text-red-500 hover:text-red-700 text-xs mt-2 flex items-center gap-1" onClick={() => handleInputChange(uniqueId, rowCount - 1)}><Trash2 size={12}/> Remove Item</button>}
+                        <div key={rIndex} className="p-6 border-2 border-dashed border-black/10 dark:border-white/10 relative bg-muted/5">
+                            <div className="absolute top-2 right-2 text-[10px] font-mono text-muted-foreground font-bold uppercase tracking-widest">Item {rIndex + 1}</div>
+                            {block.children?.map(child => <div key={child.id} className="mb-4 last:mb-0">{renderRecursive(child, -1, `${uniqueId}_${rIndex}_`)}</div>)}
+                            {rowCount > 1 && !isLocked && <button className="text-red-600 hover:text-red-800 text-[10px] uppercase font-bold mt-4 flex items-center gap-1" onClick={() => handleInputChange(uniqueId, rowCount - 1)}><Trash2 size={12}/> Remove Item</button>}
                         </div>
                     ))}
-                    {!isLocked && <Button size="sm" variant="outline" onClick={() => handleInputChange(uniqueId, rowCount + 1)} className="w-full border-dashed"><Plus size={14} className="mr-2"/> Add Item</Button>}
+                    {!isLocked && <Button size="sm" variant="outline" onClick={() => handleInputChange(uniqueId, rowCount + 1)} className="w-full border-dashed border-2 hover:border-solid hover:shadow-sharp"><Plus size={14} className="mr-2"/> Add Item</Button>}
                 </div>
             </PartyWrapper>
         );
@@ -253,8 +268,8 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
             default: isMatch = curStr == trigStr;
         }
 
-        if (isMatch) return <div className="pl-4 border-l-2 border-rose-500/20 my-2 animate-in fade-in">{block.children.map(child => renderRecursive(child, -1, idPrefix))}</div>;
-        if (block.elseChildren) return <div className="pl-4 border-l-2 border-rose-500/20 my-2 animate-in fade-in">{block.elseChildren.map(child => renderRecursive(child, -1, idPrefix))}</div>;
+        if (isMatch) return <div className="pl-6 border-l-2 border-black/5 dark:border-white/5 my-4 animate-in fade-in slide-in-from-left-2">{block.children.map(child => renderRecursive(child, -1, idPrefix))}</div>;
+        if (block.elseChildren) return <div className="pl-6 border-l-2 border-black/5 dark:border-white/5 my-4 animate-in fade-in slide-in-from-left-2">{block.elseChildren.map(child => renderRecursive(child, -1, idPrefix))}</div>;
         return null;
     }
 
@@ -262,25 +277,33 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
     switch(block.type) {
         // Layout Elements
         case BlockType.SPACER: content = <div style={{ height: block.height || 32 }} />; break;
-        case BlockType.QUOTE: content = <blockquote className="pl-4 border-l-4 border-black/20 italic text-xl text-muted-foreground font-serif my-4">{block.content}</blockquote>; break;
+        case BlockType.QUOTE: content = <blockquote className="pl-6 border-l-4 border-black dark:border-white italic text-xl text-foreground font-serif my-6 py-2">{block.content}</blockquote>; break;
         case BlockType.ALERT: 
-            const colors = { info: 'bg-blue-50 text-blue-800', warning: 'bg-amber-50 text-amber-800', error: 'bg-red-50 text-red-800', success: 'bg-green-50 text-green-800' };
-            content = <div className={cn("p-4 border-l-4 rounded-r-sm flex gap-3 my-4", colors[block.variant || 'info'])}>{block.content}</div>; 
+            const colors = { info: 'bg-blue-50 border-blue-600 text-blue-900', warning: 'bg-amber-50 border-amber-500 text-amber-900', error: 'bg-red-50 border-red-600 text-red-900', success: 'bg-green-50 border-green-600 text-green-900' };
+            const icons = { info: Info, warning: AlertTriangle, error: XOctagon, success: CheckCircle2 };
+            const AlertIcon = icons[block.variant || 'info'];
+            
+            content = (
+                <div className={cn("p-4 border-l-4 shadow-sm flex gap-4 my-6 items-start", colors[block.variant || 'info'])}>
+                    <AlertIcon size={24} className="shrink-0 mt-0.5" />
+                    <div className="text-sm font-medium leading-relaxed">{block.content || "Important information."}</div>
+                </div>
+            ); 
             break;
-        case BlockType.SECTION_BREAK: content = <hr className="border-t-2 border-black/10 my-4" />; break;
+        case BlockType.SECTION_BREAK: content = <hr className="border-t-2 border-black/10 my-8 dark:border-white/10" />; break;
 
         // --- Native HTML5 Inputs ---
         case BlockType.INPUT: 
             content = (
                 <Input 
                     type="text" 
-                    value={formValues[uniqueId] || ''} 
+                    value={(formValues[uniqueId] as string) || ''} 
                     onChange={(e) => handleInputChange(uniqueId, e.target.value)} 
                     placeholder={block.placeholder} 
                     disabled={isLocked} 
                     autoComplete="off"
                     required={block.required}
-                    className={cn(isActive && "ring-2 ring-primary ring-offset-2")}
+                    className={commonInputClass}
                 />
             ); 
             break;
@@ -290,25 +313,25 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
                     type="email" 
                     inputMode="email"
                     autoComplete="email"
-                    value={formValues[uniqueId] || ''} 
+                    value={(formValues[uniqueId] as string) || ''} 
                     onChange={(e) => handleInputChange(uniqueId, e.target.value)} 
                     placeholder={block.placeholder || "name@example.com"} 
                     disabled={isLocked} 
                     required={block.required}
-                    className={cn(isActive && "ring-2 ring-primary ring-offset-2")}
+                    className={commonInputClass}
                 />
              ); 
              break;
         case BlockType.LONG_TEXT:
              content = (
                 <Textarea 
-                    value={formValues[uniqueId] || ''} 
+                    value={(formValues[uniqueId] as string) || ''} 
                     onChange={(e) => handleInputChange(uniqueId, e.target.value)} 
                     placeholder={block.placeholder} 
                     disabled={isLocked} 
                     spellCheck={true}
                     required={block.required}
-                    className={cn(isActive && "ring-2 ring-primary ring-offset-2")}
+                    className={cn(commonInputClass, "min-h-[120px] leading-relaxed")}
                 />
              ); 
              break;
@@ -320,12 +343,12 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
                     min={block.min} 
                     max={block.max} 
                     step={block.step} 
-                    value={formValues[uniqueId] ?? ''} 
+                    value={(formValues[uniqueId] as number | string) ?? ''} 
                     onChange={(e) => handleInputChange(uniqueId, e.target.value)} 
                     placeholder={block.placeholder || "0"} 
                     disabled={isLocked} 
                     required={block.required}
-                    className={cn(isActive && "ring-2 ring-primary ring-offset-2")}
+                    className={commonInputClass}
                     onWheel={(e) => e.currentTarget.blur()}
                 />
             ); 
@@ -334,20 +357,23 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
              content = (
                 <Input 
                     type="date"
-                    value={formValues[uniqueId] || ''} 
+                    value={(formValues[uniqueId] as string) || ''} 
                     onChange={(e) => handleInputChange(uniqueId, e.target.value)} 
                     disabled={isLocked} 
                     required={block.required}
-                    className={cn(isActive && "ring-2 ring-primary ring-offset-2")}
+                    className={commonInputClass}
                 />
              );
              break;
         case BlockType.FILE_UPLOAD:
             content = (
                 <div className="flex flex-col gap-2">
-                    <div className="relative border-2 border-dashed border-black/10 hover:border-black/30 bg-muted/5 transition-colors p-4 flex flex-col items-center justify-center text-center">
-                        <FileUp className="w-6 h-6 text-muted-foreground mb-2 opacity-50" />
-                        <span className="text-xs text-muted-foreground font-mono uppercase tracking-widest">{formValues[uniqueId] ? 'File Selected' : 'Choose File'}</span>
+                    <div className={cn(
+                        "relative border-2 border-dashed transition-all p-6 flex flex-col items-center justify-center text-center group",
+                         formValues[uniqueId] ? "border-green-500 bg-green-50/20" : "border-black/20 hover:border-black bg-muted/5 hover:bg-white dark:border-white/20 dark:hover:border-white"
+                    )}>
+                        <FileUp className={cn("w-8 h-8 mb-2 transition-colors", formValues[uniqueId] ? "text-green-600" : "text-muted-foreground group-hover:text-black dark:group-hover:text-white")} />
+                        <span className="text-xs font-bold font-mono uppercase tracking-widest text-muted-foreground">{formValues[uniqueId] ? 'File Ready' : 'Upload File'}</span>
                         <input 
                             type="file"
                             disabled={isLocked}
@@ -361,7 +387,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
                         />
                     </div>
                     {formValues[uniqueId] && (
-                        <div className="text-[10px] font-mono flex items-center gap-1 text-primary">
+                        <div className="text-[10px] font-mono flex items-center gap-1 text-green-700 bg-green-50 px-2 py-1 border border-green-200 w-fit">
                             <CheckCircle2 size={10} /> {formValues[uniqueId]}
                         </div>
                     )}
@@ -374,8 +400,11 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
              content = (
                 <div className="relative">
                     <select 
-                        className="flex h-10 w-full border-2 border-black/10 bg-transparent px-3 py-2 text-sm focus-visible:outline-none focus-visible:border-primary disabled:cursor-not-allowed disabled:opacity-50 dark:bg-zinc-900 dark:border-white/20 dark:text-white appearance-none rounded-none"
-                        value={formValues[uniqueId] || ''} 
+                        className={cn(
+                            commonInputClass, 
+                            "appearance-none pr-8 cursor-pointer h-12"
+                        )}
+                        value={(formValues[uniqueId] as string) || ''} 
                         onChange={(e) => handleInputChange(uniqueId, e.target.value)} 
                         disabled={isLocked}
                         required={block.required}
@@ -383,15 +412,18 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
                         <option value="" disabled>Select option...</option>
                         {block.options?.map(opt => <option key={opt} value={opt}>{opt}</option>)}
                     </select>
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
-                        <ChevronDown size={14} />
+                    <div className="absolute right-4 top-1/2 -translate-y-1/2 pointer-events-none opacity-50">
+                        <ChevronDown size={16} />
                     </div>
                 </div>
              );
              break;
         case BlockType.CHECKBOX:
              content = (
-                 <div className="flex items-center gap-3 p-3 border-2 border-black/5 hover:border-black/20 transition-all bg-white dark:bg-black/20">
+                 <label className={cn(
+                     "flex items-center gap-4 p-4 border-2 transition-all cursor-pointer select-none group",
+                     !!formValues[uniqueId] ? "border-black bg-black text-white dark:border-white dark:bg-white dark:text-black shadow-sharp" : "border-black/10 bg-white hover:border-black/30 dark:bg-black dark:border-white/20"
+                 )}>
                      <input 
                         type="checkbox"
                         id={uniqueId}
@@ -399,31 +431,48 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
                         onChange={(e) => handleInputChange(uniqueId, e.target.checked)} 
                         disabled={isLocked}
                         required={block.required}
-                        className="w-5 h-5 border-2 border-black rounded-none text-primary focus:ring-0 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 accent-black dark:accent-white"
+                        className="sr-only" 
                      />
-                     <label htmlFor={uniqueId} className="text-xs font-mono font-bold cursor-pointer select-none flex-1 text-foreground uppercase tracking-wide">{block.label || "Confirm"}</label>
-                 </div>
+                     <div className={cn(
+                         "w-6 h-6 border-2 flex items-center justify-center shrink-0 transition-all",
+                         !!formValues[uniqueId] ? "border-white bg-black dark:border-black dark:bg-white" : "border-black/30 bg-transparent group-hover:border-black"
+                     )}>
+                         {!!formValues[uniqueId] && <CheckCircle2 size={16} className={!!formValues[uniqueId] ? "text-white dark:text-black" : "opacity-0"} />}
+                     </div>
+                     <span className="text-sm font-bold font-mono uppercase tracking-wide flex-1">{block.label || "Confirm"}</span>
+                 </label>
              );
              break;
         case BlockType.RADIO:
             content = (
-                <div className="flex flex-col gap-2">
-                    {block.options?.map((opt, i) => (
-                        <div key={i} className="flex items-center gap-3 p-2 hover:bg-black/5 transition-colors">
-                            <input 
-                                type="radio" 
-                                name={uniqueId} 
-                                id={`${uniqueId}_${i}`} 
-                                value={opt} 
-                                checked={formValues[uniqueId] === opt} 
-                                onChange={(e) => handleInputChange(uniqueId, e.target.value)}
-                                disabled={isLocked}
-                                required={block.required}
-                                className="w-4 h-4 border-2 border-black text-primary cursor-pointer accent-black dark:accent-white focus:ring-0"
-                            />
-                            <Label htmlFor={`${uniqueId}_${i}`} className="mb-0 cursor-pointer normal-case text-sm font-sans font-medium text-foreground">{opt}</Label>
-                        </div>
-                    ))}
+                <div className="flex flex-col gap-3">
+                    {block.options?.map((opt, i) => {
+                        const isChecked = formValues[uniqueId] === opt;
+                        return (
+                            <label key={i} className={cn(
+                                "flex items-center gap-4 p-3 border-2 transition-all cursor-pointer select-none group hover:shadow-sharp-sm",
+                                isChecked ? "border-black bg-black/5 dark:border-white dark:bg-white/10" : "border-black/10 bg-white hover:border-black/30 dark:bg-black dark:border-white/20"
+                            )}>
+                                <input 
+                                    type="radio" 
+                                    name={uniqueId} 
+                                    value={opt} 
+                                    checked={isChecked} 
+                                    onChange={(e) => handleInputChange(uniqueId, e.target.value)}
+                                    disabled={isLocked}
+                                    required={block.required}
+                                    className="sr-only"
+                                />
+                                <div className={cn(
+                                    "w-5 h-5 border-2 rounded-full flex items-center justify-center shrink-0 transition-all",
+                                    isChecked ? "border-primary" : "border-black/30 group-hover:border-black dark:border-white/30"
+                                )}>
+                                    <div className={cn("w-2.5 h-2.5 rounded-full bg-primary transition-transform duration-200", isChecked ? "scale-100" : "scale-0")} />
+                                </div>
+                                <span className={cn("text-sm font-medium", isChecked && "font-bold")}>{opt}</span>
+                            </label>
+                        )
+                    })}
                 </div>
             );
             break;
@@ -431,9 +480,9 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
         // --- Complex Blocks ---
         case BlockType.SIGNATURE:
             content = (
-                <div className={cn(isLocked && "opacity-70")}>
+                <div className={cn(isLocked && "opacity-80 pointer-events-none")}>
                     <SignatureWidget 
-                        initialValue={block.content || formValues[uniqueId]} 
+                        initialValue={block.content || (formValues[uniqueId] as string)} 
                         onSign={(val) => onSignBlock(block.id, val)} 
                         signatureId={block.signatureId} 
                         signedAt={block.signedAt}
@@ -446,18 +495,18 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
             content = <CurrencyWidget block={block} formValues={formValues} userPrefs={userCurrencyPreferences} onPrefChange={(id, v) => setUserCurrencyPreferences(p => ({...p, [id]: v}))} />;
             break;
         case BlockType.PAYMENT:
-            content = <PaymentWidget block={block} formValues={formValues} globalVariables={globalVariables} docHash={docHash} docSettings={docSettings} />;
+            content = <PaymentWidget block={block} formValues={formValues} globalVariables={globalVariables} docHash={docHash} docSettings={docSettings} allBlocks={allBlocksFlat} />;
             break;
         case BlockType.IMAGE:
-             content = block.src ? <img src={block.src} alt="Embedded" className="w-full max-h-[400px] object-contain border-2 border-black/10" /> : <div className="p-8 border-2 border-dashed border-black/10 text-center text-muted-foreground uppercase font-mono text-xs">Image Placeholder</div>;
+             content = block.src ? <img src={block.src} alt="Embedded" className="w-full max-h-[500px] object-contain border-2 border-black/10 dark:border-white/10 bg-muted/5" /> : <div className="p-8 border-2 border-dashed border-black/10 text-center text-muted-foreground uppercase font-mono text-xs">Image Placeholder</div>;
              break;
         case BlockType.VIDEO:
-             content = block.videoUrl ? <div className="aspect-video bg-black flex items-center justify-center text-white font-mono text-xs">VIDEO EMBED: {block.videoUrl}</div> : <div className="p-8 border-2 border-dashed border-black/10 text-center text-muted-foreground uppercase font-mono text-xs">Video Placeholder</div>;
+             content = block.videoUrl ? <div className="aspect-video bg-black flex items-center justify-center text-white font-mono text-xs border-2 border-black dark:border-white/20">VIDEO EMBED: {block.videoUrl}</div> : <div className="p-8 border-2 border-dashed border-black/10 text-center text-muted-foreground uppercase font-mono text-xs">Video Placeholder</div>;
              break;
         case BlockType.FORMULA:
              content = (
-                <div className="h-10 bg-indigo-50/50 border-2 border-indigo-100 flex items-center px-3 text-sm font-mono font-bold text-indigo-800">
-                     ƒx = {SafeFormula.evaluate(block.formula || '', formValues) || 0}
+                <div className="h-12 bg-indigo-50/50 border-2 border-indigo-100 flex items-center px-4 text-sm font-mono font-bold text-indigo-800 shadow-sm">
+                     <span className="opacity-50 mr-2">ƒx =</span> {SafeFormula.evaluate(block.formula || '', formValues) || 0}
                 </div>
              );
              break;
@@ -466,12 +515,12 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
 
     return (
         <PartyWrapper id={uniqueId} assignedTo={assignedParty} locked={isLocked} lockedBy={assignedParty?.name}>
-             <div className={cn("mb-6 transition-all duration-500", isActive && "scale-[1.01]")}>
+             <div className={cn("mb-8 transition-all duration-300", isActive && "translate-x-1")}>
                 {block.label && !isLayoutBlock && block.type !== BlockType.CHECKBOX && (
-                    <Label className="mb-2 block text-muted-foreground flex justify-between text-xs uppercase font-bold tracking-wider">
+                    <Label className="mb-2 block text-muted-foreground flex justify-between text-xs uppercase font-bold tracking-wider select-none">
                         {block.label} 
                         {block.required && <span className="text-red-500 ml-1" title="Required">*</span>}
-                        {validationErrors[uniqueId] && <span className="text-red-500 text-[10px] normal-case ml-auto">{validationErrors[uniqueId]}</span>}
+                        {validationErrors[uniqueId] && <span className="text-red-500 text-[10px] normal-case ml-auto animate-pulse font-bold">{validationErrors[uniqueId]}</span>}
                     </Label>
                 )}
                 {content}
@@ -513,7 +562,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
   useEffect(() => {
       const initial: FormValues = {};
       allBlocksFlat.forEach(b => {
-          if (b.content && b.type !== BlockType.TEXT) {
+          if (b.content && b.type !== BlockType.TEXT && b.type !== BlockType.ALERT) {
               initial[b.id] = b.content;
           }
       });
@@ -528,17 +577,13 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
   };
 
   const handleSignBlock = async (blockId: string, url: string) => {
-      // 1. Update Local UI immediately
       handleInputChange(blockId, url);
       
-      // 2. Perform Secure Transaction
       if (url && !isPreview) {
           try {
-              // Capture metadata
               const userAgent = navigator.userAgent;
               const ip = await fetch('https://api.ipify.org?format=json').then(res => res.json()).then(data => data.ip).catch(() => '127.0.0.1');
               
-              // Capture Geolocation for Audit Trail
               let locationString = '';
               try {
                   const pos: any = await new Promise((resolve, reject) => {
@@ -548,7 +593,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                       locationString = `${pos.coords.latitude.toFixed(5)}, ${pos.coords.longitude.toFixed(5)}`;
                   }
               } catch (e) {
-                  // Geo permission denied or timeout
+                  // Geo permission denied
               }
 
               const result = await SupabaseService.signDocumentBlock(
@@ -562,7 +607,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                     location: locationString
                   }, 
                   simulatedPartyId,
-                  verifiedIdentifier // Pass 2FA info
+                  verifiedIdentifier 
               );
 
               if (result.success && result.updatedDoc?.status === 'completed') {
@@ -575,12 +620,37 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
       }
   };
 
-  const progress = useMemo(() => {
-      const totalRequired = allBlocksFlat.filter(b => b.required).length;
-      if (totalRequired === 0) return 100;
-      const filled = allBlocksFlat.filter(b => b.required && formValues[b.id]).length;
-      return Math.round((filled / totalRequired) * 100);
-  }, [allBlocksFlat, formValues]);
+  // --- WIZARD LOGIC ---
+  
+  const getNextRequiredField = () => {
+      return allBlocksFlat.find(b => {
+          // 1. Must be required
+          if (!b.required) return false;
+          // 2. Must be empty
+          const val = formValues[b.id];
+          if (val) return false;
+          // 3. Must be assigned to current party (or no assignment for some types)
+          // But strict logic: only assigned blocks block the wizard
+          if (b.assignedToPartyId && b.assignedToPartyId !== simulatedPartyId) return false;
+          
+          return true;
+      });
+  };
+
+  const nextField = getNextRequiredField();
+  
+  const handleWizardNext = () => {
+      if (nextField) {
+          const el = document.getElementById(nextField.id);
+          if (el) {
+              el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+              const input = el.querySelector('input, select, textarea');
+              if (input instanceof HTMLElement) input.focus();
+          }
+      } else {
+          // Finished?
+      }
+  };
 
   const renderRecursive = (block: DocBlock, index: number, prefix: string) => (
       <BlockRenderer 
@@ -603,19 +673,19 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
         docHash={docHash}
         docSettings={settings}
         onSignBlock={handleSignBlock}
-        documentCompleted={isCompleted} // Pass locking state down
+        documentCompleted={isCompleted} 
       />
   );
 
   return (
-    <div className="max-w-5xl mx-auto p-8 pb-32 relative min-h-screen bg-muted/10 bg-grid-pattern pt-24">
+    <div className="max-w-5xl mx-auto p-8 pb-32 relative min-h-screen bg-muted/10 bg-grid-pattern pt-24 font-sans">
         {isCompleted && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-in fade-in">
                 <div className="bg-white dark:bg-zinc-900 p-8 border-2 border-black dark:border-white shadow-2xl max-w-md text-center">
                     <div className="w-16 h-16 bg-green-100 text-green-600 rounded-full flex items-center justify-center mx-auto mb-4 border-2 border-green-200">
                         <ShieldCheck size={32} />
                     </div>
-                    <h2 className="text-2xl font-bold mb-2">Document Finalized</h2>
+                    <h2 className="text-2xl font-bold mb-2 uppercase font-mono tracking-tight">Document Finalized</h2>
                     <p className="text-muted-foreground text-sm mb-6">All parties have signed. A secure audit trail has been generated and emailed to all participants.</p>
                     <Button onClick={() => setIsCompleted(false)} className="w-full">View Signed Document</Button>
                 </div>
@@ -625,7 +695,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
         {/* Preview Controls */}
         {isPreview && (
             <div className="fixed top-20 left-1/2 -translate-x-1/2 z-40 pointer-events-none w-full max-w-[850px] px-4">
-                <Card className="p-2 bg-white dark:bg-black border-2 border-black dark:border-white shadow-sm inline-block pointer-events-auto">
+                <Card className="p-2 bg-white dark:bg-black border-2 border-black dark:border-white shadow-sharp inline-block pointer-events-auto">
                     <div className="flex items-center gap-4">
                         <span className="text-[10px] font-black font-mono uppercase tracking-wide text-black dark:text-white">Viewing as:</span>
                         <div className="flex gap-1">
@@ -638,23 +708,27 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
             </div>
         )}
 
-        <div className="max-w-[850px] mx-auto bg-white dark:bg-black border-2 border-black dark:border-zinc-800 shadow-hypr dark:shadow-hypr-dark relative transition-all p-16 min-h-[1100px]" dir={settings?.direction || 'ltr'}>
-             <div className="absolute top-4 right-4 flex items-center gap-2">
+        <div 
+            className="max-w-[850px] mx-auto bg-white dark:bg-black border-2 border-black dark:border-zinc-800 shadow-hypr dark:shadow-hypr-dark relative transition-all p-16 min-h-[1100px]" 
+            dir={settings?.direction || 'ltr'}
+            style={{ fontFamily: settings?.fontFamily || 'inherit' }}
+        >
+             <div className="absolute top-4 right-4 flex items-center gap-2 font-mono">
                  {verifiedIdentifier && (
                      <div className="bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800 px-2 py-1 flex items-center gap-2">
                         <ShieldCheck size={10} className="text-green-600" />
-                        <span className="font-mono text-[9px] uppercase tracking-widest text-green-700">{verifiedIdentifier}</span>
+                        <span className="text-[9px] uppercase tracking-widest text-green-700">{verifiedIdentifier}</span>
                      </div>
                  )}
                  <div className="bg-zinc-100 dark:bg-zinc-900 border border-zinc-300 dark:border-zinc-700 px-2 py-1 flex items-center gap-2">
                      <Lock size={10} className={isCompleted ? "text-green-600" : "text-muted-foreground"} />
-                     <span className="font-mono text-[9px] uppercase tracking-widest text-muted-foreground">{docHash ? docHash.substring(0, 16) + '...' : 'CALCULATING...'}</span>
+                     <span className="text-[9px] uppercase tracking-widest text-muted-foreground">{docHash ? docHash.substring(0, 16) + '...' : 'CALCULATING...'}</span>
                  </div>
              </div>
 
             <div className="mb-12 text-center border-b-2 border-black/10 dark:border-white/10 pb-6">
-                {settings?.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-12 mx-auto mb-4 object-contain" />}
-                <h1 className="text-3xl font-black tracking-tight mb-2 font-mono uppercase text-foreground dark:text-white">{blocks[0]?.content ? (blocks[0].content.includes('<h1>') ? '' : 'Untitled Document') : 'Untitled Document'}</h1>
+                {settings?.logoUrl && <img src={settings.logoUrl} alt="Logo" className="h-16 mx-auto mb-6 object-contain" />}
+                <h1 className="text-4xl font-black tracking-tight mb-2 uppercase text-foreground dark:text-white">{blocks[0]?.content ? (blocks[0].content.includes('<h1>') ? '' : 'Untitled Document') : 'Untitled Document'}</h1>
                 {isCompleted && <Badge variant="default" className="bg-green-600 border-green-700 text-white mt-2">LEGALLY BINDING & LOCKED</Badge>}
             </div>
 
@@ -667,12 +741,19 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-full max-w-md px-4 z-50">
             <div className="bg-black dark:bg-zinc-900 text-white p-3 border-2 border-white/20 shadow-2xl flex items-center justify-between gap-4 pr-4 pl-5">
                  <div className="flex flex-col flex-1">
-                     <span className="text-[9px] font-bold font-mono uppercase tracking-widest mb-1 text-primary">Progress</span>
-                     <div className="h-1.5 w-full bg-white/20 overflow-hidden"><div className="h-full bg-primary transition-all duration-500 ease-out" style={{ width: `${progress}%` }} /></div>
+                     <span className="text-[9px] font-bold font-mono uppercase tracking-widest mb-1 text-primary">Next Action</span>
+                     <div className="text-xs font-mono truncate max-w-[200px] text-white/70">
+                         {nextField ? `Fill: ${nextField.label || 'Required Field'}` : "All actions complete"}
+                     </div>
                  </div>
                  <div className="flex items-center gap-2">
-                     <Button size="sm" className="bg-primary text-black hover:bg-white font-bold font-mono h-8" disabled={isCompleted}>
-                         {progress === 100 ? "FINISH" : "NEXT"} {progress === 100 ? <CheckCircle2 size={14} className="ml-1.5"/> : <ChevronRight size={14} className="ml-1.5" />}
+                     <Button 
+                        size="sm" 
+                        className={cn("bg-primary text-black hover:bg-white font-bold font-mono h-8 border-none", !nextField && "bg-green-500 text-black")}
+                        disabled={isCompleted}
+                        onClick={handleWizardNext}
+                     >
+                         {nextField ? "NEXT" : "COMPLETE"} {nextField ? <ChevronRight size={14} className="ml-1.5" /> : <CheckCircle2 size={14} className="ml-1.5"/>}
                      </Button>
                  </div>
             </div>

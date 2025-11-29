@@ -1,4 +1,6 @@
 
+import { DocBlock } from '../types';
+
 /**
  * Payment Service
  * Handles Provider Simulation, Currency Formatting, and Calculation Logic
@@ -69,7 +71,8 @@ export const PaymentService = {
             variableName?: string; 
         } | undefined, 
         formValues: Record<string, any>,
-        globalVariables: any[]
+        globalVariables: any[],
+        allBlocks: DocBlock[] = []
     ): number => {
         if (!settings) return 0;
 
@@ -78,29 +81,41 @@ export const PaymentService = {
             return settings.amount || 0;
         }
 
+        const resolveValue = (varName: string): number => {
+            if (!varName) return 0;
+            
+            // A. Check Global Variables
+            const globalVal = globalVariables.find(v => v.key === varName)?.value;
+            if (globalVal !== undefined) return parseFloat(globalVal) || 0;
+
+            // B. Check Block Variables
+            const sourceBlock = allBlocks.find(b => b.variableName === varName);
+            if (sourceBlock) {
+                // Try to find the value in formValues using the block's ID
+                // Note: formValues keys are block IDs. 
+                // We attempt to find the ID directly or with a suffix check for resilience.
+                let val = formValues[sourceBlock.id];
+                
+                // Fallback: Check if any key ends with this ID (useful if ID is used as suffix)
+                if (val === undefined) {
+                     const entry = Object.entries(formValues).find(([k]) => k.endsWith(sourceBlock.id));
+                     if (entry) val = entry[1];
+                }
+
+                if (val !== undefined && val !== '') return parseFloat(val) || 0;
+            }
+
+            return 0;
+        };
+
         // 2. Variable Reference (Direct)
         if (settings.amountType === 'variable' && settings.variableName) {
-            // Check form values (Input fields)
-            const formVal = Object.entries(formValues).find(([key, val]) => key.endsWith(settings.variableName!))?.[1];
-            if (formVal) return parseFloat(formVal) || 0;
-
-            // Check global variables
-            const globalVal = globalVariables.find(v => v.key === settings.variableName)?.value;
-            if (globalVal) return parseFloat(globalVal) || 0;
+            return resolveValue(settings.variableName);
         }
 
         // 3. Percentage Calculation (Deposit)
         if (settings.amountType === 'percent' && settings.percentage && settings.variableName) {
-             let baseValue = 0;
-             // Check form values
-             const formVal = Object.entries(formValues).find(([key, val]) => key.endsWith(settings.variableName!))?.[1];
-             if (formVal) baseValue = parseFloat(formVal) || 0;
-             else {
-                 // Check global variables
-                 const globalVal = globalVariables.find(v => v.key === settings.variableName)?.value;
-                 if (globalVal) baseValue = parseFloat(globalVal) || 0;
-             }
-
+             const baseValue = resolveValue(settings.variableName);
              return (baseValue * (settings.percentage / 100));
         }
 

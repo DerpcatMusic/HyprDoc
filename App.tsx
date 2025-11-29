@@ -14,19 +14,17 @@ import { AuthPage } from './components/AuthPage';
 import { ErrorBoundary } from './components/ErrorBoundary';
 import { 
     Settings, LayoutTemplate, ArrowLeft, Share, 
-    Moon, Sun, Book, Package, Hexagon, LogOut, Menu, X
+    Moon, Sun, Book, Package, Hexagon, LogOut, Menu, X, SlidersHorizontal
 } from 'lucide-react';
 import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, cn } from './components/ui-components';
 
 // --- CUSTOM HASH ROUTER HOOK (ROBUST & SANDBOX SAFE) ---
 const useHashLocation = () => {
-    // Safely get hash or default to dashboard
     const getHash = useCallback(() => {
         try {
             if (typeof window === 'undefined') return '#dashboard';
             return window.location.hash || '#dashboard';
         } catch (e) {
-            // Fallback for sandboxed environments where location is restricted
             return '#dashboard'; 
         }
     }, []);
@@ -40,14 +38,11 @@ const useHashLocation = () => {
     }, [getHash]);
 
     const navigate = useCallback((newHash: string) => {
-        // 1. Optimistically update state immediately (UI responsiveness)
         setHash(newHash);
-        
-        // 2. Try to update browser URL, ignore if blocked by sandbox permissions
         try {
             window.location.hash = newHash;
         } catch (e) {
-            console.warn("Router: Hash update blocked by environment, using internal state navigation.", e);
+            console.warn("Router: Hash update blocked by environment.", e);
         }
     }, []);
 
@@ -65,7 +60,6 @@ const AppContent: React.FC = () => {
 
     const [recipientIdentifier, setRecipientIdentifier] = useState<string | null>(null);
     const [isDarkMode, setIsDarkMode] = useState(false);
-    const [showPartyManager, setShowPartyManager] = useState(false);
     const [showGlossary, setShowGlossary] = useState(false);
     const [showSendModal, setShowSendModal] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -76,11 +70,16 @@ const AppContent: React.FC = () => {
     }, [hash, navigate]);
 
     // Parse Route
-    // Format: #doc/:id/:view or #dashboard or #s/:id (public share)
+    // Format: 
+    // #dashboard
+    // #settings (Global)
+    // #doc/:id/edit
+    // #doc/:id/settings (Doc Specific)
+    // #s/:id (public share)
     const routeParts = hash.replace('#', '').split('/');
-    const rootRoute = routeParts[0] || 'dashboard'; // 'doc', 'dashboard', 's'
+    const rootRoute = routeParts[0] || 'dashboard'; 
     const docId = routeParts[1];
-    const subView = routeParts[2] || 'edit'; // 'edit', 'settings', 'preview'
+    const subView = routeParts[2] || 'edit'; 
 
     // Load Doc Effect
     useEffect(() => {
@@ -108,13 +107,11 @@ const AppContent: React.FC = () => {
         }
     };
 
-    // --- Loading State ---
     if (loading) {
         return <div className="h-screen w-screen flex items-center justify-center bg-background"><div className="animate-spin w-8 h-8 border-4 border-primary border-t-transparent rounded-full" /></div>;
     }
 
-    // 1. Recipient Mode (Public/Protected via AccessGate)
-    // Route: #s/:id
+    // Recipient View (Public)
     if (rootRoute === 's') {
         if (!recipientIdentifier) {
             return <AccessGate documentTitle={doc.title} onAccessGranted={(id) => setRecipientIdentifier(id)} />;
@@ -132,13 +129,11 @@ const AppContent: React.FC = () => {
         );
     }
 
-    // 2. Authentication Check for App Modes
     if (!user) {
         return <AuthPage />;
     }
 
-    // 3. Preview Mode
-    // Route: #doc/:id/preview
+    // Preview Mode
     if (rootRoute === 'doc' && subView === 'preview') {
         return (
             <div className="min-h-screen bg-background transition-colors font-sans">
@@ -154,7 +149,6 @@ const AppContent: React.FC = () => {
         )
     }
 
-    // 4. Main App Shell (Dashboard, Editor, Settings)
     return (
         <div className="flex h-screen w-screen bg-background text-foreground font-sans overflow-hidden relative">
             
@@ -169,7 +163,7 @@ const AppContent: React.FC = () => {
                 </button>
             </div>
 
-            {/* Navigation Sidebar / Mobile Menu */}
+            {/* Navigation Sidebar */}
             <div className={cn(
                 "w-16 border-r-2 border-black bg-white dark:bg-black dark:border-white flex flex-col items-center py-6 gap-8 z-40 shadow-none flex-shrink-0 transition-all duration-300",
                 "md:static md:flex",
@@ -188,7 +182,19 @@ const AppContent: React.FC = () => {
                         <LayoutTemplate size={20} />
                         <span className="md:hidden ml-2 font-mono font-bold">Dashboard</span>
                     </button>
-                    {/* Only show Editor/Settings nav if a doc is selected and we are in doc mode */}
+
+                    <button 
+                        className={`w-10 h-10 flex items-center justify-center border-2 transition-all ${rootRoute === 'settings' ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' : 'border-transparent hover:border-black dark:hover:border-white text-muted-foreground'}`} 
+                        onClick={() => { navigate('#settings'); setIsMobileMenuOpen(false); }} 
+                        title="Global Settings & Integrations"
+                    >
+                        <Settings size={20} />
+                        <span className="md:hidden ml-2 font-mono font-bold">Global Settings</span>
+                    </button>
+
+                    <div className="w-8 h-px bg-black/10 dark:bg-white/10 my-2" />
+
+                    {/* Document Specific Navigation */}
                     {rootRoute === 'doc' && docId && (
                         <>
                             <button 
@@ -198,14 +204,6 @@ const AppContent: React.FC = () => {
                             >
                                 <Package size={20} />
                                 <span className="md:hidden ml-2 font-mono font-bold">Editor</span>
-                            </button>
-                            <button 
-                                className={`w-10 h-10 flex items-center justify-center border-2 transition-all ${subView === 'settings' ? 'bg-black text-white border-black dark:bg-white dark:text-black dark:border-white' : 'border-transparent hover:border-black dark:hover:border-white text-muted-foreground'}`} 
-                                onClick={() => { navigate(`#doc/${docId}/settings`); setIsMobileMenuOpen(false); }} 
-                                title="Settings"
-                            >
-                                <Settings size={20} />
-                                <span className="md:hidden ml-2 font-mono font-bold">Settings</span>
                             </button>
                         </>
                     )}
@@ -255,7 +253,6 @@ const AppContent: React.FC = () => {
                         documents={[doc]} 
                         auditLog={doc.auditLog} 
                         onCreate={() => { 
-                            // Create temp ID, context creates actual doc structure
                             const newId = crypto.randomUUID(); 
                             navigate(`#doc/${newId}/edit`); 
                         }} 
@@ -267,12 +264,12 @@ const AppContent: React.FC = () => {
                     />
                 )}
 
-                {rootRoute === 'doc' && subView === 'settings' && (
+                {/* Global User Settings */}
+                {rootRoute === 'settings' && (
                     <SettingsView 
-                        settings={doc.settings} 
-                        onUpdate={(s) => setDoc(prev => ({ ...prev, settings: s }))} 
-                        parties={doc.parties}
-                        onUpdateParties={updateParties}
+                        mode="global"
+                        settings={doc.settings} // Not used for global, but passing prop type satisfaction
+                        onUpdate={() => {}} 
                     />
                 )}
 
@@ -292,9 +289,7 @@ const AppContent: React.FC = () => {
                             parties={doc.parties}
                             variables={doc.variables}
                             selectedBlockId={selectedBlockId}
-                            showPartyManager={showPartyManager}
                             onTitleChange={(t) => setDoc(prev => ({...prev, title: t}))}
-                            onTogglePartyManager={setShowPartyManager}
                             onPreview={() => navigate(`#doc/${docId}/preview`)}
                             onSend={() => setShowSendModal(true)}
                             onSelectBlock={setSelectedBlockId}

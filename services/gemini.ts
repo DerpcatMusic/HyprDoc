@@ -3,13 +3,17 @@ import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { BlockType, DocBlock } from "../types";
 
 // Initialize Gemini Client
-// IMPORTANT: We wrap this in a safe getter or default because in some preview environments
-// process.env.API_KEY might be missing or limited.
-let ai: GoogleGenAI;
+// IMPORTANT: The API key must be obtained exclusively from the environment variable.
+// We do not provide a fallback to 'dummy_key' to ensure security and fail-fast behavior.
+let ai: GoogleGenAI | null = null;
 try {
-  ai = new GoogleGenAI({ apiKey: process.env.API_KEY || 'dummy_key' });
+  if (process.env.API_KEY) {
+    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  } else {
+    console.warn("Gemini API Key missing. AI features will be disabled.");
+  }
 } catch (e) {
-  console.warn("Gemini Client Init Warning:", e);
+  console.error("Gemini Client Init Failed:", e);
 }
 
 /**
@@ -150,11 +154,11 @@ const processAIBlock = (raw: any): DocBlock => {
 };
 
 export const generateDocumentFromPrompt = async (prompt: string): Promise<{ title: string, blocks: DocBlock[] }> => {
-  if (!process.env.API_KEY) {
+  if (!ai) {
       console.warn("Missing API Key - Returning mock content.");
       return {
-          title: "Demo Document (No API Key)",
-          blocks: [{ id: crypto.randomUUID(), type: BlockType.TEXT, content: "# Demo Mode\n\nNo API Key detected in environment variables. Please add `API_KEY` to use Gemini features." }]
+          title: "Demo Document (AI Unavailable)",
+          blocks: [{ id: crypto.randomUUID(), type: BlockType.TEXT, content: "# AI Unavailable\n\nPlease configure the `API_KEY` environment variable to use Gemini features." }]
       };
   }
 
@@ -199,7 +203,7 @@ export const generateDocumentFromPrompt = async (prompt: string): Promise<{ titl
 };
 
 export const refineText = async (text: string, instruction: 'fix_grammar' | 'make_legalese' | 'shorten' | 'expand'): Promise<string> => {
-  if (!process.env.API_KEY) return text + " [AI Demo Mode: Key Missing]";
+  if (!ai) return text;
 
   try {
     const prompts = {
@@ -219,13 +223,4 @@ export const refineText = async (text: string, instruction: 'fix_grammar' | 'mak
     console.error("Gemini Refinement Error:", error);
     return text;
   }
-};
-
-// Legacy shim for PDF import (placeholder to prevent breaking existing imports)
-export const parsePDFToModularDoc = async (file: File): Promise<DocBlock[]> => {
-   return [{
-       id: crypto.randomUUID(),
-       type: BlockType.TEXT,
-       content: "## PDF Parsing is currently disabled.\n\nPlease use the 'Generate with AI' feature to build documents from scratch."
-   }];
 };
