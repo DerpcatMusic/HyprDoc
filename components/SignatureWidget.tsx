@@ -32,7 +32,7 @@ export const SignatureWidget: React.FC<SignatureWidgetProps> = ({ onSign, initia
 
     // Initialize Signature Pad
     useEffect(() => {
-        if (activeTab === 'draw' && canvasRef.current && !previewUrl) {
+        if (activeTab === 'draw' && canvasRef.current && !previewUrl && !disabled) {
             const canvas = canvasRef.current;
             const resizeCanvas = () => {
                 const ratio = Math.max(window.devicePixelRatio || 1, 1);
@@ -60,7 +60,7 @@ export const SignatureWidget: React.FC<SignatureWidgetProps> = ({ onSign, initia
                 newPad.off();
             };
         }
-    }, [activeTab, previewUrl]);
+    }, [activeTab, previewUrl, disabled]);
 
     const handleClear = () => {
         if (disabled) return;
@@ -201,8 +201,8 @@ export const SignatureWidget: React.FC<SignatureWidgetProps> = ({ onSign, initia
                         </div>
                         
                         <div className="mt-4 border-t pt-4 border-dashed">
-                             <div className="flex items-center gap-2 mb-3 cursor-pointer" onClick={() => setHasConsented(!hasConsented)}>
-                                 <Checkbox checked={hasConsented} onCheckedChange={setHasConsented} id="consent-draw" />
+                             <div className="flex items-center gap-2 mb-3 cursor-pointer" onClick={() => !disabled && setHasConsented(!hasConsented)}>
+                                 <Checkbox checked={hasConsented} onCheckedChange={setHasConsented} id="consent-draw" disabled={disabled} />
                                  <Label className="cursor-pointer mb-0" htmlFor="consent-draw">I agree to be legally bound by this electronic signature.</Label>
                              </div>
                              <div className="flex justify-end gap-2">
@@ -230,8 +230,8 @@ export const SignatureWidget: React.FC<SignatureWidgetProps> = ({ onSign, initia
                             </div>
                             
                             <div className="mt-4 border-t pt-4 border-dashed">
-                                 <div className="flex items-center gap-2 mb-3 cursor-pointer" onClick={() => setHasConsented(!hasConsented)}>
-                                     <Checkbox checked={hasConsented} onCheckedChange={setHasConsented} id="consent-type" />
+                                 <div className="flex items-center gap-2 mb-3 cursor-pointer" onClick={() => !disabled && setHasConsented(!hasConsented)}>
+                                     <Checkbox checked={hasConsented} onCheckedChange={setHasConsented} id="consent-type" disabled={disabled} />
                                      <Label className="cursor-pointer mb-0" htmlFor="consent-type">I agree to be legally bound by this electronic signature.</Label>
                                  </div>
                                  <div className="flex justify-end">
@@ -253,13 +253,13 @@ export const SignatureWidget: React.FC<SignatureWidgetProps> = ({ onSign, initia
                                 className="absolute inset-0 opacity-0 cursor-pointer" 
                                 accept="image/png, image/jpeg"
                                 onChange={handleUpload}
-                                disabled={!hasConsented}
+                                disabled={!hasConsented || disabled}
                             />
-                            {!hasConsented && <div className="absolute inset-0 bg-white/50 dark:bg-black/50 cursor-not-allowed z-10" />}
+                            {(!hasConsented || disabled) && <div className="absolute inset-0 bg-white/50 dark:bg-black/50 cursor-not-allowed z-10" />}
                         </div>
                         
                         <div className="mt-4 flex items-center gap-2 justify-center">
-                             <Checkbox checked={hasConsented} onCheckedChange={setHasConsented} id="consent-upload" />
+                             <Checkbox checked={hasConsented} onCheckedChange={setHasConsented} id="consent-upload" disabled={disabled} />
                              <Label className="cursor-pointer mb-0" htmlFor="consent-upload">I agree to be legally bound by this electronic signature.</Label>
                         </div>
                         

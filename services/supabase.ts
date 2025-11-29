@@ -2,8 +2,8 @@ import { createClient } from '@supabase/supabase-js';
 import { DocumentState, BlockType, AuditLogEntry, DocBlock } from '../types';
 
 // NOTE: These should be in your .env file
-const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://xyz.supabase.co';
-const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'your-anon-key';
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://jlgqpslemxirboufbviq.supabase.co';
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpsZ3Fwc2xlbXhpcmJvdWZidmlxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjQzNzQyMDUsImV4cCI6MjA3OTk1MDIwNX0.rrP0l2cYZMk5iZBggAEsj7FLp8G01H6e1ChZsc5LlKs';
 
 export const supabase = createClient(SUPABASE_URL, SUPABASE_KEY);
 
@@ -221,7 +221,8 @@ export const SupabaseService = {
                     userAgent: signatureData.userAgent,
                     blockId: blockId,
                     integrityCheck: 'PASSED',
-                    location: signatureData.location
+                    location: signatureData.location,
+                    consent: true
                 }
             };
             doc.auditLog = [newLog, ...(doc.auditLog || [])];
@@ -243,7 +244,7 @@ export const SupabaseService = {
                     details: 'All required signatures collected. Document Finalized and Locked.'
                 });
             } else {
-                doc.status = 'sent'; // Ensure it's marked as in-progress
+                doc.status = 'sent'; 
             }
 
             // 5. Persist

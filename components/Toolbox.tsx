@@ -39,9 +39,9 @@ export const Toolbox: React.FC<ToolboxProps> = ({ onDragStart, onAddBlock }) => 
     return (
         <div className="flex-1 overflow-y-auto bg-muted/10 dark:bg-zinc-950 scrollbar-hide flex flex-col border-r-2 border-black dark:border-white">
             
-            {/* 1. STRUCTURE & CONTENT */}
+            {/* 1. CONTENT & STRUCTURE */}
             <div>
-                <SectionHeader title="Structure & Layout" number="01" />
+                <SectionHeader title="Content & Structure" number="01" />
                 <div className="grid grid-cols-2 border-b border-black/10 dark:border-white/10">
                     <ToolItem type={BlockType.TEXT} icon={Type} label="Text Block" onDragStart={onDragStart} onClick={onAddBlock} />
                     <ToolItem type={BlockType.COLUMNS} icon={Columns} label="Columns" onDragStart={onDragStart} onClick={onAddBlock} />
@@ -56,10 +56,10 @@ export const Toolbox: React.FC<ToolboxProps> = ({ onDragStart, onAddBlock }) => 
 
             {/* 2. DATA INPUTS */}
             <div>
-                <SectionHeader title="Data Collection" number="02" />
+                <SectionHeader title="Data Inputs" number="02" />
                 <div className="grid grid-cols-2 border-b border-black/10 dark:border-white/10">
-                    <ToolItem type={BlockType.INPUT} icon={FileText} label="Short Answer" onDragStart={onDragStart} onClick={onAddBlock} />
-                    <ToolItem type={BlockType.LONG_TEXT} icon={AlignLeft} label="Long Answer" onDragStart={onDragStart} onClick={onAddBlock} />
+                    <ToolItem type={BlockType.INPUT} icon={FileText} label="Short Text" onDragStart={onDragStart} onClick={onAddBlock} />
+                    <ToolItem type={BlockType.LONG_TEXT} icon={AlignLeft} label="Long Text" onDragStart={onDragStart} onClick={onAddBlock} />
                     <ToolItem type={BlockType.EMAIL} icon={Mail} label="Email Address" onDragStart={onDragStart} onClick={onAddBlock} />
                     <ToolItem type={BlockType.NUMBER} icon={Hash} label="Number" onDragStart={onDragStart} onClick={onAddBlock} />
                     <ToolItem type={BlockType.DATE} icon={Calendar} label="Date Picker" onDragStart={onDragStart} onClick={onAddBlock} />
@@ -67,7 +67,7 @@ export const Toolbox: React.FC<ToolboxProps> = ({ onDragStart, onAddBlock }) => 
                 </div>
             </div>
 
-            {/* 3. CHOICE & SELECTION */}
+            {/* 3. CHOICE & SIGN */}
             <div>
                  <SectionHeader title="Choice & Sign" number="03" />
                  <div className="grid grid-cols-2 border-b border-black/10 dark:border-white/10">
