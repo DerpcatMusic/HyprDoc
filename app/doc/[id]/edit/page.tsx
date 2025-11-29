@@ -2,17 +2,17 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
-import { EditorCanvas } from '../../../../components/EditorCanvas';
-import { Toolbox } from '../../../../components/Toolbox';
-import { PropertiesPanel } from '../../../../components/PropertiesPanel';
-import { GlossaryManager } from '../../../../components/GlossaryManager';
-import { Button, Dialog } from '../../../../components/ui-components';
+import { EditorCanvas } from '@/components/EditorCanvas';
+import { Toolbox } from '@/components/Toolbox';
+import { PropertiesPanel } from '@/components/PropertiesPanel';
+import { GlossaryManager } from '@/components/GlossaryManager';
+import { Button, Dialog } from '@/components/ui-components';
 import { 
     ArrowLeft, Share, Moon, Sun, Book, 
     LogOut, Menu, X, SlidersHorizontal
 } from 'lucide-react';
-import { useDocument } from '../../../../context/DocumentContext';
-import { useAuth } from '../../../../context/AuthContext';
+import { useDocument } from '@/context/DocumentContext';
+import { useAuth } from '@/context/AuthContext';
 
 export default function DocumentEditorPage() {
     const router = useRouter();

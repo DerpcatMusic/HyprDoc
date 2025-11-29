@@ -7,9 +7,9 @@ import {
     LayoutTemplate, Settings, ArrowLeft, LogOut, 
     Menu, X, Hexagon, Moon, Sun, Book
 } from 'lucide-react';
-import { useAuth } from '../../context/AuthContext';
-import { Button } from '../../components/ui-components';
-import { cn } from '../../components/ui-components';
+import { useAuth } from '@/context/AuthContext';
+import { Button } from '@/components/ui-components';
+import { cn } from '@/components/ui-components';
 
 export default function DashboardLayout({
     children,
@@ -113,3 +113,4 @@ export default function DashboardLayout({
         </div>
     );
 }
+

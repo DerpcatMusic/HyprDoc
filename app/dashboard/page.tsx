@@ -2,9 +2,9 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { DashboardView } from '../../components/views/DashboardView';
-import { DocumentState, AuditLogEntry } from '../../types';
-import { SupabaseService, DocMeta } from '../../services/supabase';
+import { DashboardView } from '@/components/views/DashboardView';
+import { DocumentState, AuditLogEntry } from '@/types';
+import { SupabaseService, DocMeta } from '@/services/supabase';
 
 export default function DashboardPage() {
     const router = useRouter();
@@ -66,3 +66,4 @@ export default function DashboardPage() {
         />
     );
 }
+
