@@ -70,8 +70,8 @@ export const PaymentService = {
             percentage?: number | undefined;
             variableName?: string | undefined; 
         } | undefined, 
-        formValues: Record<string, any>,
-        globalVariables: any[],
+        formValues: Record<string, string | number | boolean | string[] | null | undefined>,
+        globalVariables: Array<{ id: string; key: string; value: string; label?: string }>,
         allBlocks: DocBlock[] = []
     ): number => {
         if (!settings) return 0;
@@ -102,7 +102,7 @@ export const PaymentService = {
                      if (entry) val = entry[1];
                 }
 
-                if (val !== undefined && val !== '') return parseFloat(val) || 0;
+                if (val !== undefined && val !== '') return parseFloat(String(val)) || 0;
             }
 
             return 0;

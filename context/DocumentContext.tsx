@@ -122,7 +122,13 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         let isMounted = true;
         const calculateHash = async () => {
             if (!doc.blocks) return;
-            const hash = await hashDocument(doc);
+            const hash = await hashDocument({
+                blocks: doc.blocks,
+                parties: doc.parties,
+                settings: doc.settings,
+                terms: doc.terms || [],
+                variables: doc.variables || []
+            });
             if (isMounted && hash !== doc.sha256) {
                 setDoc(prev => ({ ...prev, sha256: hash }));
             }

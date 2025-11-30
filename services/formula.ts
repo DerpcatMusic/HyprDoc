@@ -92,8 +92,10 @@ const tokenize = (input: string): Token[] => {
 };
 
 // Shunting-yard algorithm to RPN
-const toRPN = (tokens: Token[], getValue: (key: string) => number): any[] => {
-    const outputQueue: any[] = [];
+type RPNElement = number | string;
+
+const toRPN = (tokens: Token[], getValue: (key: string) => number): RPNElement[] => {
+    const outputQueue: RPNElement[] = [];
     const operatorStack: Token[] = [];
 
     const precedence: Record<string, number> = {
@@ -114,7 +116,7 @@ const toRPN = (tokens: Token[], getValue: (key: string) => number): any[] => {
                 operatorStack[operatorStack.length - 1]!.type === 'OPERATOR' &&
                 (precedence[operatorStack[operatorStack.length - 1]!.value] || 0) >= (precedence[token.value] || 0)
             ) {
-                outputQueue.push(operatorStack.pop()?.value);
+                outputQueue.push(operatorStack.pop()?.value ?? '');
             }
             operatorStack.push(token);
         } else if (token.type === 'LPAREN') {
@@ -124,20 +126,20 @@ const toRPN = (tokens: Token[], getValue: (key: string) => number): any[] => {
                 operatorStack.length > 0 &&
                 operatorStack[operatorStack.length - 1]!.type !== 'LPAREN'
             ) {
-                outputQueue.push(operatorStack.pop()?.value);
+                outputQueue.push(operatorStack.pop()?.value ?? '');
             }
             operatorStack.pop(); // Pop LPAREN
         }
     });
 
     while (operatorStack.length > 0) {
-        outputQueue.push(operatorStack.pop()?.value);
+        outputQueue.push(operatorStack.pop()?.value ?? '');
     }
 
     return outputQueue;
 };
 
-const evaluateRPN = (rpn: any[]): number => {
+const evaluateRPN = (rpn: RPNElement[]): number => {
     const stack: number[] = [];
 
     rpn.forEach(token => {
@@ -159,14 +161,14 @@ const evaluateRPN = (rpn: any[]): number => {
 };
 
 export const SafeFormula = {
-    evaluate: (formula: string, context: Record<string, any>): number | string => {
+    evaluate: (formula: string, context: Record<string, string | number | boolean | string[] | null | undefined>): number | string => {
         try {
             if (!formula) return 0;
             const tokens = tokenize(formula);
             
             const getValue = (key: string) => {
                 const val = context[key];
-                const num = parseFloat(val);
+                const num = parseFloat(String(val ?? ''));
                 return isNaN(num) ? 0 : num;
             };
 

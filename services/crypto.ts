@@ -11,7 +11,9 @@
  * Recursively sorts object keys to ensure deterministic JSON stringification.
  * This is crucial because {a:1, b:2} and {b:2, a:1} must produce the same hash.
  */
-export const canonicalize = (value: any): any => {
+type JSONValue = string | number | boolean | null | JSONValue[] | { [key: string]: JSONValue };
+
+export const canonicalize = (value: JSONValue): JSONValue => {
     if (value === null || typeof value !== 'object') {
         return value;
     }
@@ -21,10 +23,13 @@ export const canonicalize = (value: any): any => {
     }
 
     const sortedKeys = Object.keys(value).sort();
-    const result: Record<string, any> = {};
+    const result: Record<string, JSONValue> = {};
     
     for (const key of sortedKeys) {
-        result[key] = canonicalize(value[key]);
+        const val = value[key];
+        if (val !== undefined) {
+            result[key] = canonicalize(val);
+        }
     }
 
     return result;
@@ -34,7 +39,13 @@ export const canonicalize = (value: any): any => {
  * Generates a SHA-256 hash of the document state.
  * Uses the Web Crypto API.
  */
-export const hashDocument = async (doc: any): Promise<string> => {
+export const hashDocument = async (doc: {
+    blocks: unknown[];
+    parties: unknown[];
+    settings: unknown;
+    terms: unknown[];
+    variables: unknown[];
+}): Promise<string> => {
     try {
         // 1. Canonicalize (Order keys)
         // We exclude dynamic properties that don't affect legal content (like local UI state if any leaked in)
@@ -47,7 +58,7 @@ export const hashDocument = async (doc: any): Promise<string> => {
             variables: doc.variables
         };
 
-        const canonicalDoc = canonicalize(cleanDoc);
+        const canonicalDoc = canonicalize(cleanDoc as JSONValue);
         const jsonString = JSON.stringify(canonicalDoc);
 
         // 2. Encode to Uint8Array

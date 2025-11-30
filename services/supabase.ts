@@ -126,7 +126,7 @@ export const SupabaseService = {
             if (!supabase) return { data: { session: { user: { id: 'local_user' } } } };
             return await supabase.auth.getSession();
         },
-        onAuthStateChange: (callback: (event: any, session: any) => void) => {
+        onAuthStateChange: (callback: (event: import('@supabase/supabase-js').AuthChangeEvent, session: import('@supabase/supabase-js').Session | null) => void) => {
             if (!supabase) {
                 // Mock subscription
                 return { data: { subscription: { unsubscribe: () => {} } } };
@@ -267,8 +267,15 @@ export const SupabaseService = {
                 auditLog: doc.auditLog
             };
 
-            const payload: any = {
-                id: doc.id,
+            const payload: {
+                id: string;
+                title: string;
+                status: string;
+                updated_at: string;
+                content: typeof content;
+                user_id?: string;
+            } = {
+                id: doc.id!,
                 title: doc.title,
                 status: doc.status,
                 updated_at: new Date().toISOString(),

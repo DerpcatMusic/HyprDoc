@@ -12,6 +12,8 @@
   },
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
+    "@hocuspocus/provider": "^3.4.0",
+    "@hocuspocus/server": "^3.4.0",
     "@supabase/supabase-js": "latest",
     "@tiptap/extension-placeholder": "latest",
     "@tiptap/react": "latest",
@@ -28,6 +30,8 @@
     "signature_pad": "latest",
     "sonner": "latest",
     "tailwind-merge": "latest",
+    "yjs": "^13.6.27",
+    "zod": "^4.1.13",
     "zustand": "latest"
   },
   "devDependencies": {
@@ -42,7 +46,7 @@
     "eslint-config-next": "latest",
     "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "latest",
-    "tailwindcss": "^3.4.17",
+    "tailwindcss": "^4.0.0",
     "typescript": "latest"
   }
 }
