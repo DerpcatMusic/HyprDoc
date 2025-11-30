@@ -1,5 +1,5 @@
 import React, { useState, useRef } from 'react';
-import { DocBlock, DropPosition } from '../types';
+import { DocBlock, DropPosition } from '../types/block';
 
 export const useBlockDrag = (
     block: DocBlock, 

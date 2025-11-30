@@ -1,5 +1,6 @@
 
-import { DocumentState, BlockType } from '../types';
+import type { DocumentState } from '../types/document';
+import { BlockType } from '../types/block';
 
 const STORAGE_KEY_PREFIX = 'hyprdoc_doc_';
 const INDEX_KEY = 'hyprdoc_index';

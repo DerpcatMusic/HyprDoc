@@ -1,6 +1,7 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { DocumentState, BlockType, AuditLogEntry, DocBlock } from '../types';
+import { DocumentState, AuditLogEntry } from '../types/document';
+import { BlockType, DocBlock } from '../types/block';
 
 // NOTE: These should be in your .env file
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
@@ -324,7 +325,7 @@ export const SupabaseService = {
             const identifierString = verifiedIdentifier ? ` [Verified: ${verifiedIdentifier}]` : '';
 
             const newLog: AuditLogEntry = {
-                id: crypto.randomUUID(),
+                id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                 timestamp: signatureData.timestamp,
                 action: 'signed',
                 user: partyName,
@@ -348,7 +349,7 @@ export const SupabaseService = {
             if (allSigned) {
                 doc.status = 'completed';
                 doc.auditLog.unshift({
-                    id: crypto.randomUUID(),
+                    id: `audit_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
                     timestamp: Date.now(),
                     action: 'completed',
                     user: 'System',

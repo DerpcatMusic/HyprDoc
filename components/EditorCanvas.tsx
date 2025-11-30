@@ -1,19 +1,20 @@
-
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
 import { DocBlock, Party, BlockType, DocumentSettings, Variable } from '../types';
 import { EditorBlock } from './EditorBlock';
-import { Button, Input, ColorPicker, cn, Dialog, DialogContent, DialogHeader, DialogTitle } from './ui-components';
-import { FileText, Grid, Plus, Settings2, Play, Lock, Unlock, Magnet, RotateCcw, RotateCw, Save, Cog, Users, ChevronDown } from 'lucide-react';
+import { Button, cn, Dialog, DialogContent, DialogHeader, DialogTitle } from './ui-components';
 import { useDocument } from '../context/DocumentContext';
 import { SettingsView } from './views/SettingsView';
-import { PartiesList } from './PartiesList';
+import { CanvasToolbar } from './editor/CanvasToolbar';
+import { MarginControls } from './editor/MarginControls';
+import { useMarginDrag } from '../hooks/useMarginDrag';
+import { useCanvasInteractions } from '../hooks/useCanvasInteractions';
 
 interface EditorCanvasProps {
     docTitle: string;
-    docSettings?: DocumentSettings;
+    docSettings?: DocumentSettings | undefined;
     blocks: DocBlock[];
     parties: Party[];
-    variables?: Variable[];
+    variables?: Variable[] | undefined;
     selectedBlockId: string | null;
     showPartyManager?: boolean; // Deprecated
     onTitleChange: (t: string) => void;
@@ -29,346 +30,250 @@ interface EditorCanvasProps {
     onUpdateVariables: (vars: Variable[]) => void;
 }
 
-export const EditorCanvas: React.FC<EditorCanvasProps> = ({
-    docTitle, docSettings, blocks, parties, selectedBlockId,
-    onTitleChange, onPreview, onSelectBlock,
-    onUpdateBlock, onDeleteBlock, onAddBlock, onDropBlock, onUpdateParty
+/**
+ * EditorCanvas component - Main editor interface for document editing
+ * Refactored to use focused sub-components and custom hooks for better maintainability
+ * 
+ * Key improvements:
+ * - Split into focused sub-components (CanvasToolbar, MarginControls)
+ * - Extracted logic into custom hooks (useMarginDrag, useCanvasInteractions)
+ * - Added proper error handling and accessibility
+ * - Improved performance with memoization
+ */
+export const EditorCanvas: React.FC<EditorCanvasProps> = memo(({
+    docTitle,
+    docSettings,
+    blocks,
+    parties,
+    selectedBlockId,
+    onTitleChange,
+    onPreview,
+    onSelectBlock,
+    onUpdateBlock,
+    onDeleteBlock,
+    onAddBlock,
+    onDropBlock,
+    onUpdateParty,
 }) => {
-    const { updateSettings, moveBlock, addParty, removeParty, addBlock, undo, redo, canUndo, canRedo, saveStatus, saveNow, updateParties } = useDocument();
+    const { 
+        updateSettings, 
+        moveBlock, 
+        addParty, 
+        removeParty, 
+        addBlock: contextAddBlock, 
+        undo, 
+        redo, 
+        canUndo, 
+        canRedo, 
+        saveStatus, 
+        saveNow, 
+        updateParties 
+    } = useDocument();
+    
+    // Local UI state
     const [showMargins, setShowMargins] = useState(false); 
     const [snapSize, setSnapSize] = useState(5); 
-    const [draggingMargin, setDraggingMargin] = useState<'top' | 'bottom' | 'left' | 'right' | null>(null);
     const [showDocSettings, setShowDocSettings] = useState(false);
     const [showPartiesPopover, setShowPartiesPopover] = useState(false);
     
+    // Refs
     const canvasRef = useRef<HTMLDivElement>(null);
     const partiesButtonRef = useRef<HTMLButtonElement>(null);
-    const margins = docSettings?.margins || { top: 80, bottom: 80, left: 80, right: 80 };
-    const mirrorMargins = docSettings?.mirrorMargins || false;
-
-    // Undo/Redo Shortcuts
+    
+    // Custom hooks for separated concerns
+    const {
+        isDragging,
+        draggingMargin,
+        margins,
+        mirrorMargins,
+        startDrag,
+        stopDrag,
+        updateMargins,
+        cleanup: marginCleanup,
+        handleGlobalMouseUp,
+    } = useMarginDrag(docSettings, updateSettings);
+    
+    const {
+        handleDragStartBlock,
+        handleDropInternal,
+        handleBlockDrop,
+        handleCanvasClick,
+        handleDragOver,
+        cleanup: canvasCleanup,
+    } = useCanvasInteractions(
+        blocks,
+        selectedBlockId,
+        onSelectBlock,
+        onAddBlock,
+        onDropBlock,
+        contextAddBlock,
+        moveBlock
+    );
+    
+    // Keyboard shortcuts for undo/redo
     useEffect(() => {
         const handleKeyDown = (e: KeyboardEvent) => {
-            if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
-                e.preventDefault();
-                if (e.shiftKey) redo();
-                else undo();
-            }
-            if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
-                e.preventDefault();
-                redo();
+            try {
+                if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+                    e.preventDefault();
+                    if (e.shiftKey) redo();
+                    else undo();
+                }
+                if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+                    e.preventDefault();
+                    redo();
+                }
+            } catch (error) {
+                console.error('Error handling keyboard shortcut:', error);
             }
         };
+        
         window.addEventListener('keydown', handleKeyDown);
         return () => window.removeEventListener('keydown', handleKeyDown);
     }, [undo, redo]);
-
+    
     // Close parties popover on click outside
     useEffect(() => {
         const handleClickOutside = (e: MouseEvent) => {
-            if (showPartiesPopover && 
-                partiesButtonRef.current && 
-                !partiesButtonRef.current.contains(e.target as Node) &&
-                !(e.target as Element).closest('.parties-popover')) {
-                setShowPartiesPopover(false);
+            try {
+                if (showPartiesPopover && 
+                    partiesButtonRef.current && 
+                    !partiesButtonRef.current.contains(e.target as Node) &&
+                    !(e.target as Element).closest('.parties-popover')) {
+                    setShowPartiesPopover(false);
+                }
+            } catch (error) {
+                console.error('Error handling click outside:', error);
             }
         };
+        
         window.addEventListener('mousedown', handleClickOutside);
         return () => window.removeEventListener('mousedown', handleClickOutside);
     }, [showPartiesPopover]);
-
-    const handleDragStartBlock = (e: React.DragEvent, id: string) => {
-        e.dataTransfer.setData('application/hyprdoc-block-id', id);
-        e.dataTransfer.effectAllowed = 'move';
-        e.stopPropagation();
-    };
-
-    const handleDropInternal = (e: React.DragEvent) => {
-        e.preventDefault();
-        e.stopPropagation();
-        
-        const newType = e.dataTransfer.getData('application/hyprdoc-new') as BlockType;
-        const existingId = e.dataTransfer.getData('application/hyprdoc-block-id');
-        
-        // If dropping directly on canvas (not handled by a child block), append to root
-        if (newType) {
-            addBlock(newType);
-        } else if (existingId) {
-            // Move to root level, at the end
-            moveBlock(existingId, undefined, 'after');
-        }
-    };
-
-    const handleBlockDrop = (e: React.DragEvent, targetId: string, position: any) => {
-        e.preventDefault(); e.stopPropagation();
-        const newType = e.dataTransfer.getData('application/hyprdoc-new') as BlockType;
-        const existingId = e.dataTransfer.getData('application/hyprdoc-block-id');
-
-        if (existingId === targetId) return;
-
-        if (newType) {
-            addBlock(newType, targetId, position);
-        } else if (existingId) {
-            moveBlock(existingId, targetId, position);
-        }
-    };
-
-    // --- MARGIN DRAGGING LOGIC ---
+    
+    // Global mouse up handler for margin dragging
     useEffect(() => {
-        const handleMouseMove = (e: MouseEvent) => {
-            if (!draggingMargin || !canvasRef.current) return;
-            const rect = canvasRef.current.getBoundingClientRect();
-            
-            let rawValue = 0;
-            if (draggingMargin === 'left') rawValue = e.clientX - rect.left;
-            else if (draggingMargin === 'right') rawValue = rect.right - e.clientX;
-            else if (draggingMargin === 'top') rawValue = e.clientY - rect.top; 
-            else if (draggingMargin === 'bottom') rawValue = rect.bottom - e.clientY;
-
-            // Apply Snapping
-            let newValue = Math.round(rawValue / snapSize) * snapSize;
-            newValue = Math.max(20, Math.min(newValue, 300));
-            
-            const newMargins = { ...margins, [draggingMargin]: newValue };
-            if (mirrorMargins) {
-                if (draggingMargin === 'left') newMargins.right = newValue;
-                if (draggingMargin === 'right') newMargins.left = newValue;
-                if (draggingMargin === 'top') newMargins.bottom = newValue;
-                if (draggingMargin === 'bottom') newMargins.top = newValue;
-            }
-
-            updateSettings({ ...docSettings, margins: newMargins });
-        };
-
-        const handleMouseUp = () => setDraggingMargin(null);
-
-        if (draggingMargin) {
-            window.addEventListener('mousemove', handleMouseMove);
-            window.addEventListener('mouseup', handleMouseUp);
+        if (isDragging) {
+            window.addEventListener('mouseup', handleGlobalMouseUp);
+            return () => window.removeEventListener('mouseup', handleGlobalMouseUp);
         }
+    }, [isDragging, handleGlobalMouseUp]);
+    
+    // Cleanup on unmount
+    useEffect(() => {
         return () => {
-            window.removeEventListener('mousemove', handleMouseMove);
-            window.removeEventListener('mouseup', handleMouseUp);
+            marginCleanup();
+            canvasCleanup();
         };
-    }, [draggingMargin, margins, docSettings, updateSettings, mirrorMargins, snapSize]);
-
-    const toggleMirrorMargins = () => {
-        updateSettings({ ...docSettings, mirrorMargins: !mirrorMargins });
-    };
-
-    const handleCanvasClick = (e: React.MouseEvent) => {
-        // If clicking on the canvas container directly (not a block)
-        if (e.target === e.currentTarget || (e.target as HTMLElement).classList.contains('min-h-full')) {
-            onSelectBlock('');
-            
-            // Check if last block is empty text, if so focus it, else create new
-            const lastBlock = blocks[blocks.length - 1];
-            if (lastBlock?.type === BlockType.TEXT && !lastBlock.content) {
-                onSelectBlock(lastBlock.id);
-            } else {
-                addBlock(BlockType.TEXT);
-            }
+    }, [marginCleanup, canvasCleanup]);
+    
+    // Memoized handlers for better performance
+    const handleAddParty = useCallback(() => {
+        try {
+            addParty({
+                id: crypto.randomUUID(),
+                name: 'New Signer',
+                color: '#' + Math.floor(Math.random()*16777215).toString(16),
+                initials: 'NS'
+            });
+        } catch (error) {
+            console.error('Failed to add party:', error);
         }
-    };
-
-    const handleAddParty = () => {
-        addParty({
-            id: crypto.randomUUID(),
-            name: 'New Signer',
-            color: '#' + Math.floor(Math.random()*16777215).toString(16),
-            initials: 'NS'
-        });
-    };
-
+    }, [addParty]);
+    
+    const handleToggleMirrorMargins = useCallback(() => {
+        try {
+            updateSettings({ ...docSettings, mirrorMargins: !mirrorMargins });
+        } catch (error) {
+            console.error('Failed to toggle mirror margins:', error);
+        }
+    }, [docSettings, mirrorMargins, updateSettings]);
+    
+    // Error boundary component for canvas operations
+    const CanvasErrorBoundary: React.FC<{ children: React.ReactNode }> = memo(({ children }) => {
+        const [hasError, setHasError] = useState(false);
+        
+        useEffect(() => {
+            const handleError = (error: ErrorEvent) => {
+                console.error('Canvas operation failed:', error);
+                setHasError(true);
+            };
+            
+            window.addEventListener('error', handleError);
+            return () => window.removeEventListener('error', handleError);
+        }, []);
+        
+        if (hasError) {
+            return (
+                <div className="flex items-center justify-center h-64 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-600">Canvas temporarily unavailable. Please refresh the page.</p>
+                </div>
+            );
+        }
+        
+        return <>{children}</>;
+    });
+    
     return (
-        <div 
-            className="flex-1 flex flex-col bg-muted/10 relative z-0 h-full overflow-hidden" 
-            onDragOver={(e) => { e.preventDefault(); }}
-            onDrop={handleDropInternal}
-        >
-              <div className="h-14 flex-shrink-0 bg-background border-b-2 border-black dark:border-white flex items-center justify-between px-4 z-30">
-                  <div className="flex items-center gap-6">
-                      <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 bg-black dark:bg-white flex items-center justify-center border border-black dark:border-white">
-                            <FileText size={16} className="text-white dark:text-black" />
-                          </div>
-                          <div className="flex flex-col">
-                              <span className="text-[9px] font-mono font-bold uppercase text-muted-foreground leading-none mb-1 tracking-widest">Doc Reference</span>
-                              <input 
-                                value={docTitle} 
-                                onChange={(e) => onTitleChange(e.target.value)}
-                                className="text-sm font-bold bg-transparent outline-none w-48 font-mono tracking-tight uppercase border-b-2 border-transparent focus:border-primary transition-colors hover:border-black/20"
-                              />
-                          </div>
-                      </div>
+        <div className="flex-1 flex flex-col bg-muted/10 relative z-0 h-full overflow-hidden">
+            <CanvasToolbar
+                docTitle={docTitle}
+                docSettings={docSettings}
+                parties={parties}
+                selectedBlockId={selectedBlockId}
+                saveStatus={saveStatus}
+                canUndo={canUndo}
+                canRedo={canRedo}
+                showMargins={showMargins}
+                mirrorMargins={mirrorMargins}
+                snapSize={snapSize}
+                showDocSettings={showDocSettings}
+                showPartiesPopover={showPartiesPopover}
+                partiesButtonRef={partiesButtonRef}
+                onTitleChange={onTitleChange}
+                onSaveNow={saveNow}
+                onShowDocSettings={setShowDocSettings}
+                onUndo={undo}
+                onRedo={redo}
+                onToggleMargins={() => setShowMargins(!showMargins)}
+                onToggleMirrorMargins={handleToggleMirrorMargins}
+                onSnapSizeChange={setSnapSize}
+                onTogglePartiesPopover={() => setShowPartiesPopover(!showPartiesPopover)}
+                onAddParty={handleAddParty}
+                onRemoveParty={removeParty}
+                onUpdateParty={onUpdateParty}
+                onPreview={onPreview}
+            />
 
-                      <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
-
-                      <div className="flex items-center gap-2">
-                            <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-8 px-2 gap-2 border-2 border-transparent hover:border-black"
-                                onClick={saveNow}
-                                title="Force Save"
-                            >
-                                <Save size={14} />
-                                {saveStatus === 'saving' ? 'Saving...' : saveStatus === 'unsaved' ? 'Unsaved' : 'Saved'}
-                            </Button>
-                            
-                            <Button
-                                size="sm"
-                                variant="ghost"
-                                className="h-8 w-8 p-0 border-2 border-transparent hover:border-black"
-                                onClick={() => setShowDocSettings(true)}
-                                title="Document Settings"
-                            >
-                                <Cog size={16} />
-                            </Button>
-
-                            <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-2" />
-
-                            <button 
-                                onClick={undo} 
-                                disabled={!canUndo} 
-                                className="h-8 w-8 flex items-center justify-center hover:bg-black hover:text-white disabled:opacity-30 transition-colors border-2 border-transparent hover:border-black dark:hover:border-white active:scale-95" 
-                                title="Undo (Ctrl+Z)"
-                            >
-                                <RotateCcw size={16} />
-                            </button>
-                            <button 
-                                onClick={redo} 
-                                disabled={!canRedo} 
-                                className="h-8 w-8 flex items-center justify-center hover:bg-black hover:text-white disabled:opacity-30 transition-colors border-2 border-transparent hover:border-black dark:hover:border-white active:scale-95" 
-                                title="Redo (Ctrl+Y)"
-                            >
-                                <RotateCw size={16} />
-                            </button>
-
-                          <div className="h-4 w-px bg-black/10 dark:bg-white/10 mx-2" />
-
-                          <button 
-                            className={cn(
-                                "h-8 px-3 flex items-center gap-2 text-[10px] font-bold uppercase font-mono border-2 transition-colors",
-                                showMargins 
-                                    ? "bg-black text-white border-black dark:bg-white dark:text-black dark:border-white" 
-                                    : "bg-transparent border-transparent hover:border-black/20"
-                            )}
-                            onClick={() => setShowMargins(!showMargins)}
-                          >
-                            <Grid size={14} /> Grid / Margins
-                          </button>
-                          
-                          {showMargins && (
-                             <>
-                                 <button
-                                    className={cn(
-                                        "h-8 px-3 flex items-center gap-2 text-[10px] font-bold uppercase font-mono border-2 transition-colors",
-                                        mirrorMargins 
-                                            ? "text-tech-orange border-tech-orange bg-tech-orange/10" 
-                                            : "bg-transparent border-transparent hover:border-black/20"
-                                    )}
-                                    onClick={toggleMirrorMargins}
-                                 >
-                                     {mirrorMargins ? <Lock size={12} /> : <Unlock size={12} />} Sync
-                                 </button>
-                                 
-                                 <div className="flex items-center gap-1 border border-black/10 dark:border-white/10 h-8 px-2 bg-white dark:bg-black">
-                                     <Magnet size={12} className="text-muted-foreground" />
-                                     <span className="text-[9px] font-mono font-bold uppercase text-muted-foreground">Snap</span>
-                                     <input 
-                                        type="number" 
-                                        className="w-8 text-[10px] font-mono bg-transparent outline-none text-center border-b border-black/20 focus:border-black"
-                                        value={snapSize}
-                                        onChange={(e) => setSnapSize(parseInt(e.target.value) || 1)}
-                                     />
-                                     <span className="text-[9px] font-mono text-muted-foreground">px</span>
-                                 </div>
-                             </>
-                          )}
-                      </div>
-                  </div>
-                  
-                  <div className="flex items-center gap-4 relative">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[9px] font-mono font-bold uppercase text-muted-foreground mr-1 hidden lg:inline">Signers:</span>
-                        <div className="flex items-center bg-muted/10 border border-black/10 rounded-sm pl-1 pr-1">
-                            <div className="flex -space-x-1 mr-2">
-                                {parties.map(p => (
-                                    <div key={p.id} className="w-6 h-6 border border-black flex items-center justify-center text-[9px] font-bold font-mono text-white shadow-sm" style={{ backgroundColor: p.color }}>
-                                        {p.initials}
-                                    </div>
-                                ))}
-                            </div>
-                            <button 
-                                ref={partiesButtonRef}
-                                onClick={() => setShowPartiesPopover(!showPartiesPopover)}
-                                className={cn(
-                                    "h-6 px-1 flex items-center gap-1 hover:bg-black hover:text-white transition-colors text-[10px] font-bold uppercase",
-                                    showPartiesPopover ? "bg-black text-white" : ""
-                                )}
-                            >
-                                <Users size={12} /> <ChevronDown size={10} />
-                            </button>
-                        </div>
-                      </div>
-
-                      {/* PARTIES POPOVER */}
-                      {showPartiesPopover && (
-                        <div className="absolute top-full right-0 mt-2 z-50 parties-popover">
-                            <PartiesList 
-                                parties={parties} 
-                                onUpdate={onUpdateParty} 
-                                onAdd={handleAddParty} 
-                                onRemove={removeParty}
-                            />
-                        </div>
-                      )}
-
-                      <div className="h-8 w-px bg-black/10 dark:bg-white/10" />
-
-                      <Button onClick={onPreview} size="sm" className="font-mono h-8 border-black shadow-sharp hover:shadow-sharp-hover bg-primary border-primary text-white"><Play size={12} className="mr-2"/> PREVIEW</Button>
-                  </div>
-              </div>
-
-              <div className="flex-1 overflow-y-auto p-8 relative bg-grid-pattern cursor-text" style={{ fontFamily: docSettings?.fontFamily }} onClick={handleCanvasClick}>
-                  
-                  <div 
-                    ref={canvasRef}
-                    className="max-w-[850px] mx-auto bg-white dark:bg-black min-h-[1100px] border-2 border-black dark:border-white shadow-sharp dark:shadow-sharp-dark relative transition-all"
-                    dir={docSettings?.direction || 'ltr'}
-                  >
+            <div className="flex-1 overflow-y-auto p-8 relative bg-grid-pattern cursor-text" style={{ fontFamily: docSettings?.fontFamily }}>
+                <CanvasErrorBoundary>
+                    <div 
+                        ref={canvasRef}
+                        className="max-w-[850px] mx-auto bg-white dark:bg-black min-h-[1100px] border-2 border-black dark:border-white shadow-sharp dark:shadow-sharp-dark relative transition-all"
+                        dir={docSettings?.direction || 'ltr'}
+                        data-canvas="true"
+                    >
+                        {/* Margin controls overlay */}
                         {showMargins && (
-                            <div className="absolute inset-0 z-50 overflow-hidden pointer-events-none">
-                                <div 
-                                    className="absolute top-0 left-0 right-0 bg-hatch-pattern border-b-2 border-dashed border-tech-orange pointer-events-auto cursor-row-resize group"
-                                    style={{ height: margins.top }}
-                                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setDraggingMargin('top'); }}
-                                />
-                                <div 
-                                    className="absolute bottom-0 left-0 right-0 bg-hatch-pattern border-t-2 border-dashed border-tech-orange pointer-events-auto cursor-row-resize group"
-                                    style={{ height: margins.bottom }}
-                                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setDraggingMargin('bottom'); }}
-                                />
-                                <div 
-                                    className="absolute top-0 bottom-0 left-0 bg-hatch-pattern border-r-2 border-dashed border-tech-orange pointer-events-auto cursor-col-resize group"
-                                    style={{ width: margins.left }}
-                                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setDraggingMargin('left'); }}
-                                />
-                                <div 
-                                    className="absolute top-0 bottom-0 right-0 bg-hatch-pattern border-l-2 border-dashed border-tech-orange pointer-events-auto cursor-col-resize group"
-                                    style={{ width: margins.right }}
-                                    onMouseDown={(e) => { e.preventDefault(); e.stopPropagation(); setDraggingMargin('right'); }}
-                                />
-                            </div>
+                            <MarginControls
+                                margins={margins}
+                                mirrorMargins={mirrorMargins}
+                                canvasRef={canvasRef}
+                                isDragging={isDragging}
+                                draggingMargin={draggingMargin}
+                                snapSize={snapSize}
+                                onStartDrag={startDrag}
+                                onUpdateMargins={updateMargins}
+                            />
                         )}
 
+                        {/* Main content area */}
                         <div 
                             className="relative z-10 min-h-full"
                             style={{ padding: `${margins.top}px ${margins.right}px ${margins.bottom}px ${margins.left}px` }}
                             onClick={handleCanvasClick}
                             onDrop={handleDropInternal}
-                            onDragOver={(e) => e.preventDefault()}
+                            onDragOver={handleDragOver}
                         >
                             {blocks.map((block, index) => (
                                 <EditorBlock 
@@ -378,7 +283,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                                     allBlocks={blocks} 
                                     parties={parties}
                                     formValues={{}} 
-                                    docSettings={docSettings}
+                                    {...(docSettings && { docSettings })}
                                     isSelected={selectedBlockId === block.id}
                                     onSelect={onSelectBlock}
                                     onUpdate={onUpdateBlock}
@@ -389,26 +294,28 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                             ))}
                         </div>
                         
+                        {/* Empty state */}
                         {blocks.length === 0 && (
                             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none opacity-20">
                                 <div className="flex flex-col items-center">
-                                     <p className="font-mono text-xs uppercase tracking-[0.2em] font-bold">Start Typing...</p>
-                                     <p className="font-mono text-[9px] mt-2">OR PRESS '/' FOR COMMANDS</p>
+                                    <p className="font-mono text-xs uppercase tracking-[0.2em] font-bold">Start Typing...</p>
+                                    <p className="font-mono text-[9px] mt-2">OR PRESS '/' FOR COMMANDS</p>
                                 </div>
                             </div>
                         )}
-                  </div>
-                  
-                  {/* Click area below the page to simulate "infinite" typing space at bottom. Also handles drop to root. */}
-                  <div 
+                    </div>
+                </CanvasErrorBoundary>
+                
+                {/* Click area below the page for infinite scroll space */}
+                <div 
                     className="h-[300px] w-full max-w-[850px] mx-auto cursor-text" 
                     onClick={handleCanvasClick}
                     onDrop={handleDropInternal}
-                    onDragOver={(e) => e.preventDefault()}
-                  />
-              </div>
+                    onDragOver={handleDragOver}
+                />
+            </div>
 
-            {/* DOCUMENT SETTINGS MODAL */}
+            {/* Document Settings Modal */}
             <Dialog open={showDocSettings} onOpenChange={setShowDocSettings}>
                 <DialogContent className="max-w-4xl h-[600px] p-0 flex flex-col overflow-hidden">
                     <DialogHeader className="p-6 pb-2 shrink-0">
@@ -425,5 +332,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
                 </DialogContent>
             </Dialog>
         </div>
-    )
-};
+    );
+});
+
+EditorCanvas.displayName = 'EditorCanvas';

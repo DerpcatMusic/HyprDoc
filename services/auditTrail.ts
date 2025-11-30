@@ -1,6 +1,7 @@
 
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
-import { DocumentState, AuditLogEntry } from '../types';
+import { DocumentState } from '../types/document';
+import { AuditLogEntry } from '../types/audit';
 
 /**
  * Generates a legally robust Audit Trail PDF using pdf-lib.
@@ -82,12 +83,13 @@ export async function generateAuditTrailPDF(doc: DocumentState): Promise<Blob> {
     page.drawLine({
         start: { x: 50, y: yPosition },
         end: { x: 550, y: yPosition },
-        thickness: 1,
         color: rgb(0.8, 0.8, 0.8),
     });
     yPosition -= 20;
     page.drawText(`Generated: ${new Date().toISOString()}`, { x: 50, y: yPosition, size: 8, font: monoFont, color: rgb(0.6, 0.6, 0.6) });
 
     const pdfBytes = await pdfDoc.save();
-    return new Blob([pdfBytes], { type: 'application/pdf' });
+    return new Blob([pdfBytes as any], { type: 'application/pdf' });
 }
+
+

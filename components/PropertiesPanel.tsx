@@ -190,7 +190,13 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
                                         return (
                                             <button
                                                 key={party.id}
-                                                onClick={() => onUpdate(block.id, { assignedToPartyId: isAssigned ? undefined : party.id })}
+                                                onClick={() => {
+                                                    if (isAssigned) {
+                                                        onUpdate(block.id, {});
+                                                    } else {
+                                                        onUpdate(block.id, { assignedToPartyId: party.id });
+                                                    }
+                                                }}
                                                 className={cn(
                                                     "flex items-center justify-between p-2 border-2 transition-all text-xs font-mono font-bold uppercase",
                                                     isAssigned 

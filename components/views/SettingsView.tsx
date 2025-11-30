@@ -7,10 +7,10 @@ import { useDocument } from '../../context/DocumentContext';
 import { cn } from '../ui-components';
 
 interface SettingsViewProps {
-    settings?: DocumentSettings;
+    settings?: DocumentSettings | undefined;
     onUpdate: (settings: DocumentSettings) => void;
-    parties?: Party[];
-    onUpdateParties?: (parties: Party[]) => void;
+    parties?: Party[] | undefined;
+    onUpdateParties?: ((parties: Party[]) => void) | undefined;
     mode: 'global' | 'document';
     isModal?: boolean;
 }
@@ -40,9 +40,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, 
         if (!parties || !onUpdateParties) return;
         const newParties = [...parties];
         if (direction === 'up' && index > 0) {
-            [newParties[index], newParties[index - 1]] = [newParties[index - 1], newParties[index]];
+            const temp = newParties[index]!;
+            newParties[index] = newParties[index - 1]!;
+            newParties[index - 1] = temp;
         } else if (direction === 'down' && index < newParties.length - 1) {
-            [newParties[index], newParties[index + 1]] = [newParties[index + 1], newParties[index]];
+            const temp = newParties[index]!;
+            newParties[index] = newParties[index + 1]!;
+            newParties[index + 1] = temp;
         }
         onUpdateParties(newParties);
     };

@@ -260,7 +260,11 @@ const StandardEditor: React.FC<EditorBlockProps> = (props) => {
         e.stopPropagation();
         const currentIndex = parties.findIndex(p => p.id === block.assignedToPartyId);
         const nextParty = currentIndex === -1 ? parties[0] : parties[currentIndex + 1];
-        onUpdate(block.id, { assignedToPartyId: nextParty?.id });
+        if (nextParty?.id) {
+            onUpdate(block.id, { assignedToPartyId: nextParty.id });
+        } else {
+            onUpdate(block.id, {});
+        }
     };
 
     const handleRequiredToggle = (e: React.MouseEvent) => {

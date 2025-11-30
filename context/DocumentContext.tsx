@@ -1,7 +1,9 @@
 'use client'
 
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
-import { DocumentState, DocBlock, BlockType, AuditLogEntry, Party, DocumentSettings, EventType } from '../types';
+import { DocumentState } from '../types/document';
+import { DocBlock, BlockType, Party, DocumentSettings } from '../types/block';
+import { AuditLogEntry, EventType } from '../types/audit';
 import * as TreeManager from '../services/treeManager';
 import { logEvent } from '../services/eventLogger';
 import { hashDocument } from '../services/crypto';
@@ -168,6 +170,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const undo = useCallback(() => {
         if (past.length === 0) return;
         const previous = past[past.length - 1];
+        if (!previous) return;
         const newPast = past.slice(0, past.length - 1);
         
         setPast(newPast);
@@ -178,6 +181,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const redo = useCallback(() => {
         if (future.length === 0) return;
         const next = future[0];
+        if (!next) return;
         const newFuture = future.slice(1);
 
         setPast(prev => [...prev, doc]);
@@ -198,12 +202,12 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         const base: DocBlock = {
             id: crypto.randomUUID(),
             type,
-            content: type === BlockType.TEXT ? '' : undefined,
+            ...(type === BlockType.TEXT && { content: '' }),
             label: getNiceLabel(type),
             variableName: `field_${Date.now()}_${Math.floor(Math.random()*1000)}`,
-            options: ['select','radio','checkbox'].includes(type) ? ['Option 1'] : undefined,
-            children: ['conditional','repeater'].includes(type) ? [] : undefined,
-            condition: type === BlockType.CONDITIONAL ? { variableName: '', operator: 'equals', value: '' } : undefined,
+            ...(['select','radio','checkbox'].includes(type) && { options: ['Option 1'] }),
+            ...(['conditional','repeater'].includes(type) && { children: [] }),
+            ...(type === BlockType.CONDITIONAL && { condition: { variableName: '', operator: 'equals', value: '' } }),
         };
 
         if (type === BlockType.COLUMNS) {

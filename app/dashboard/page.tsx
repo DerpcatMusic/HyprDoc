@@ -42,7 +42,7 @@ export default function DashboardPage() {
             documents={docList.map(doc => ({
                 id: doc.id,
                 title: doc.title,
-                status: doc.status,
+                status: doc.status as DocumentState['status'],
                 blocks: [],
                 parties: [],
                 variables: [],

@@ -1,5 +1,5 @@
 
-import { DocBlock } from '../types';
+import type { DocBlock } from '../types/block';
 
 /**
  * Payment Service
@@ -65,10 +65,10 @@ export const PaymentService = {
 
     calculateAmount: (
         settings: { 
-            amountType?: 'fixed' | 'variable' | 'percent'; 
-            amount?: number; 
-            percentage?: number;
-            variableName?: string; 
+            amountType?: 'fixed' | 'variable' | 'percent' | undefined; 
+            amount?: number | undefined; 
+            percentage?: number | undefined;
+            variableName?: string | undefined; 
         } | undefined, 
         formValues: Record<string, any>,
         globalVariables: any[],

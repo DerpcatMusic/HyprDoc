@@ -8,13 +8,13 @@ import { cn } from './ui-components';
 
 interface BreadcrumbItem {
     label: string;
-    href?: string;
-    isActive?: boolean;
+    href?: string | undefined;
+    isActive?: boolean | undefined;
 }
 
 interface BreadcrumbProps {
     items: BreadcrumbItem[];
-    className?: string;
+    className?: string | undefined;
 }
 
 export function Breadcrumb({ items, className }: BreadcrumbProps) {
@@ -48,7 +48,10 @@ export function Breadcrumb({ items, className }: BreadcrumbProps) {
             if (isPreview) {
                 breadcrumbItems.push({ label: 'Preview', isActive: true });
             } else {
-                breadcrumbItems[breadcrumbItems.length - 1].isActive = true;
+                const lastItem = breadcrumbItems[breadcrumbItems.length - 1];
+                if (lastItem) {
+                    lastItem.isActive = true;
+                }
             }
 
             return breadcrumbItems;

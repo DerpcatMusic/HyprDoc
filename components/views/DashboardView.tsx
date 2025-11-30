@@ -72,7 +72,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
             status: 'draft',
             updatedAt: Date.now(),
             auditLog: [{ id: crypto.randomUUID(), timestamp: Date.now(), action: 'created', user: 'Me', details: `Created from template: ${templateDoc.title}` }],
-            ownerId: undefined 
+            ...(templateDoc.ownerId && { ownerId: templateDoc.ownerId })
         };
 
         if (onImport) onImport(newDoc);

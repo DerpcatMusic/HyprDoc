@@ -13,21 +13,21 @@ import { SupabaseService } from '../services/supabase';
 
 interface ViewerProps {
   blocks: DocBlock[];
-  snapshot?: DocBlock[];
-  parties?: Party[];
-  variables?: Variable[];
-  terms?: Term[];
-  isPreview?: boolean;
-  settings?: DocumentSettings;
-  docHash?: string; // Passed from parent
-  onSigningComplete?: (docId: string) => void;
-  status?: 'draft' | 'sent' | 'completed' | 'archived'; // Add status prop
-  verifiedIdentifier?: string; // NEW: from 2FA
+  snapshot?: DocBlock[] | undefined;
+  parties?: Party[] | undefined;
+  variables?: Variable[] | undefined;
+  terms?: Term[] | undefined;
+  isPreview?: boolean | undefined;
+  settings?: DocumentSettings | undefined;
+  docHash?: string | undefined; // Passed from parent
+  onSigningComplete?: ((docId: string) => void) | undefined;
+  status?: 'draft' | 'sent' | 'completed' | 'archived' | undefined; // Add status prop
+  verifiedIdentifier?: string | undefined; // NEW: from 2FA
 }
 
 // --- Helper Components ---
 
-const PartyWrapper: React.FC<{ children: React.ReactNode; assignedTo?: Party; locked?: boolean; lockedBy?: string; id?: string }> = ({ children, assignedTo, locked, lockedBy, id }) => {
+const PartyWrapper: React.FC<{ children: React.ReactNode; assignedTo?: Party | undefined; locked?: boolean | undefined; lockedBy?: string | undefined; id?: string | undefined }> = ({ children, assignedTo, locked, lockedBy, id }) => {
     if (!assignedTo) return <div id={id} className="my-4 relative group">{children}</div>;
     return (
         <div id={id} className="my-4 relative pl-4 border-l-4 transition-all group scroll-mt-32 rounded-none" style={{ borderLeftColor: assignedTo.color }}>
@@ -88,7 +88,7 @@ const CurrencyWidget = ({ block, formValues, userPrefs, onPrefChange }: { block:
       );
 };
 
-const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSettings, allBlocks }: { block: DocBlock, formValues: FormValues, globalVariables: Variable[], docHash?: string, docSettings?: DocumentSettings, allBlocks: DocBlock[] }) => {
+const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSettings, allBlocks }: { block: DocBlock, formValues: FormValues, globalVariables: Variable[], docHash?: string | undefined, docSettings?: DocumentSettings | undefined, allBlocks: DocBlock[] }) => {
     const settings = block.paymentSettings;
     const globalGateways = docSettings?.paymentGateways;
     const [status, setStatus] = useState<'idle' | 'processing' | 'success' | 'error'>('idle');
@@ -104,7 +104,7 @@ const PaymentWidget = ({ block, formValues, globalVariables, docHash, docSetting
 
     useEffect(() => {
         if (effectiveProviders.length === 1 && !selectedProvider) {
-            setSelectedProvider(effectiveProviders[0]);
+            setSelectedProvider(effectiveProviders[0] || null);
         }
     }, [effectiveProviders, selectedProvider]);
 
@@ -184,8 +184,8 @@ interface BlockRendererProps {
     setUserCurrencyPreferences: React.Dispatch<React.SetStateAction<Record<string, string>>>;
     validationErrors: Record<string, string>;
     globalVariables: Variable[];
-    docHash?: string;
-    docSettings?: DocumentSettings;
+    docHash?: string | undefined;
+    docSettings?: DocumentSettings | undefined;
     onSignBlock: (blockId: string, url: string) => void;
     documentCompleted: boolean; 
 }
@@ -483,7 +483,7 @@ const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
                 <div className={cn(isLocked && "opacity-80 pointer-events-none")}>
                     <SignatureWidget 
                         initialValue={block.content || (formValues[uniqueId] as string)} 
-                        onSign={(val) => onSignBlock(block.id, val)} 
+                        onSign={(val: string) => onSignBlock(block.id, val)} 
                         signatureId={block.signatureId} 
                         signedAt={block.signedAt}
                         disabled={isLocked} 

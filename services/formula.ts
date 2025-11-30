@@ -22,6 +22,7 @@ const tokenize = (input: string): Token[] => {
 
     while (cursor < input.length) {
         const char = input[cursor];
+        if (!char) break;
 
         // Whitespace
         if (/\s/.test(char)) {
@@ -32,8 +33,8 @@ const tokenize = (input: string): Token[] => {
         // Numbers
         if (/[0-9.]/.test(char)) {
             let num = '';
-            while (cursor < input.length && /[0-9.]/.test(input[cursor])) {
-                num += input[cursor];
+            while (cursor < input.length && /[0-9.]/.test(input[cursor] || '')) {
+                num += input[cursor] || '';
                 cursor++;
             }
             tokens.push({ type: 'NUMBER', value: num });
@@ -45,7 +46,7 @@ const tokenize = (input: string): Token[] => {
             cursor += 2;
             let varName = '';
             while (cursor < input.length && !(input[cursor] === '}' && input[cursor + 1] === '}')) {
-                varName += input[cursor];
+                varName += input[cursor] || '';
                 cursor++;
             }
             cursor += 2; // Skip }}
@@ -56,8 +57,8 @@ const tokenize = (input: string): Token[] => {
         // Natural Variables (Words: price, qty, etc.)
         if (/[a-zA-Z_]/.test(char)) {
             let word = '';
-            while (cursor < input.length && /[a-zA-Z0-9_]/.test(input[cursor])) {
-                word += input[cursor];
+            while (cursor < input.length && /[a-zA-Z0-9_]/.test(input[cursor] || '')) {
+                word += input[cursor] || '';
                 cursor++;
             }
             tokens.push({ type: 'VARIABLE', value: word });
@@ -110,8 +111,8 @@ const toRPN = (tokens: Token[], getValue: (key: string) => number): any[] => {
         } else if (token.type === 'OPERATOR') {
             while (
                 operatorStack.length > 0 &&
-                operatorStack[operatorStack.length - 1].type === 'OPERATOR' &&
-                precedence[operatorStack[operatorStack.length - 1].value] >= precedence[token.value]
+                operatorStack[operatorStack.length - 1]!.type === 'OPERATOR' &&
+                (precedence[operatorStack[operatorStack.length - 1]!.value] || 0) >= (precedence[token.value] || 0)
             ) {
                 outputQueue.push(operatorStack.pop()?.value);
             }
@@ -121,7 +122,7 @@ const toRPN = (tokens: Token[], getValue: (key: string) => number): any[] => {
         } else if (token.type === 'RPAREN') {
             while (
                 operatorStack.length > 0 &&
-                operatorStack[operatorStack.length - 1].type !== 'LPAREN'
+                operatorStack[operatorStack.length - 1]!.type !== 'LPAREN'
             ) {
                 outputQueue.push(operatorStack.pop()?.value);
             }

@@ -10,7 +10,7 @@ import { useDocument } from '../../context/DocumentContext';
 import { refineText } from '../../services/gemini';
 
 // Tiptap Imports
-import { useEditor, EditorContent, BubbleMenu } from '@tiptap/react';
+import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 
@@ -46,7 +46,7 @@ export const TextEditor: React.FC<EditorBlockProps> = (props) => {
             if (match) {
                 const coords = editor.view.coordsAtPos(selection.from);
                 setShowSlashMenu(true);
-                setSlashFilter(match[1]);
+                setSlashFilter(match[1] || '');
                 setSlashCoords({ top: coords.bottom + window.scrollY + 10, left: coords.left + window.scrollX });
             } else {
                 setShowSlashMenu(false);
@@ -161,39 +161,7 @@ export const TextEditor: React.FC<EditorBlockProps> = (props) => {
              
              {/* TIPTAP EDITOR */}
              <div className={cn("prose dark:prose-invert max-w-none text-sm font-serif leading-7 min-h-[24px]", isSelected ? "" : "opacity-90")}>
-                {editor && (
-                    <BubbleMenu editor={editor} tippyOptions={{ duration: 100 }} className="flex items-center gap-1 p-1 bg-black text-white rounded-sm shadow-xl border border-white/20">
-                        <button onClick={() => editor.chain().focus().toggleBold().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('bold') ? 'bg-white/30 text-white' : '')}><Bold size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleItalic().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('italic') ? 'bg-white/30 text-white' : '')}><Italic size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleStrike().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('strike') ? 'bg-white/30 text-white' : '')}><Strikethrough size={12}/></button>
-                        <div className="w-px h-3 bg-white/20 mx-1" />
-                        <button onClick={() => editor.chain().focus().toggleHeading({ level: 1 }).run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('heading', { level: 1 }) ? 'bg-white/30' : '')}><Heading1 size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('heading', { level: 2 }) ? 'bg-white/30' : '')}><Heading2 size={12}/></button>
-                        <button onClick={() => editor.chain().focus().toggleBulletList().run()} className={cn("p-1 hover:bg-white/20 rounded", editor.isActive('bulletList') ? 'bg-white/30' : '')}><List size={12}/></button>
-                        
-                        <div className="w-px h-3 bg-white/20 mx-1" />
-                        
-                        {/* AI MENU */}
-                        <div className="relative">
-                            <button 
-                                onClick={() => setShowMagicMenu(!showMagicMenu)} 
-                                className={cn("p-1 hover:bg-indigo-600 rounded flex items-center gap-1 text-indigo-300 hover:text-white transition-colors", isRefining && "animate-pulse")}
-                                title="AI Assistant"
-                            >
-                                <Sparkles size={12} />
-                            </button>
-                            
-                            {showMagicMenu && (
-                                <div className="absolute top-full left-1/2 -translate-x-1/2 mt-2 w-32 bg-black border border-white/20 shadow-xl flex flex-col p-1 z-50 animate-in fade-in zoom-in-95">
-                                    <button onClick={() => handleAIRefine('fix_grammar')} className="text-[10px] text-left px-2 py-1.5 hover:bg-white/20 rounded text-white font-mono">Fix Grammar</button>
-                                    <button onClick={() => handleAIRefine('make_legalese')} className="text-[10px] text-left px-2 py-1.5 hover:bg-white/20 rounded text-white font-mono">Legalese</button>
-                                    <button onClick={() => handleAIRefine('shorten')} className="text-[10px] text-left px-2 py-1.5 hover:bg-white/20 rounded text-white font-mono">Shorten</button>
-                                    <button onClick={() => handleAIRefine('expand')} className="text-[10px] text-left px-2 py-1.5 hover:bg-white/20 rounded text-white font-mono">Expand</button>
-                                </div>
-                            )}
-                        </div>
-                    </BubbleMenu>
-                )}
+
                 <EditorContent editor={editor} />
              </div>
 

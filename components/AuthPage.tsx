@@ -35,7 +35,7 @@ export const AuthPage: React.FC = () => {
     };
 
     return (
-        <div className="min-h-screen flex items-center justify-center bg-muted/10 bg-grid-pattern p-4">
+        <div className="min-h-screen flex items-center justify-center bg-muted/10 p-4">
             <div className="w-full max-w-md animate-in fade-in zoom-in-95 duration-500">
                 <div className="text-center mb-8">
                     <div className="w-12 h-12 bg-black text-white dark:bg-white dark:text-black flex items-center justify-center mx-auto mb-4 shadow-sharp dark:shadow-sharp-dark">

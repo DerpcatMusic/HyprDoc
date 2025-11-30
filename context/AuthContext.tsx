@@ -25,8 +25,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             try {
                 const { data: { session: initialSession } } = await SupabaseService.auth.getSession();
                 if (mounted) {
-                    setSession(initialSession);
-                    setUser(initialSession?.user ?? null);
+                    setSession(initialSession as unknown as Session | null);
+                    setUser((initialSession?.user as unknown as User) ?? null);
                     setLoading(false);
                 }
             } catch (error) {

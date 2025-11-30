@@ -1,5 +1,5 @@
 
-import { DocBlock } from "../types";
+import type { DocBlock } from "../types/block";
 
 export type DiffType = 'unchanged' | 'added' | 'modified' | 'removed';
 

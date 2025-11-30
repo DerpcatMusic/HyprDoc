@@ -50,7 +50,7 @@ export default function DocumentEditorPage() {
         e.dataTransfer.effectAllowed = 'copy';
     };
 
-    const handleDropCanvas = (e: React.DragEvent, targetId?: string) => {
+    const handleDropCanvas = (e: React.DragEvent, targetId?: string, position?: any) => {
         e.preventDefault();
         const newType = e.dataTransfer.getData('application/hyprdoc-new') as any;
         if (newType) {

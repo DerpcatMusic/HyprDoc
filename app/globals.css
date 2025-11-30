@@ -2,53 +2,250 @@
 @tailwind components;
 @tailwind utilities;
 
-/* CSS Custom Properties for Design Tokens */
-:root {
-  --primary: 59 130 246;
-  --primary-foreground: 255 255 255;
-  --secondary: 241 245 249;
-  --secondary-foreground: 15 23 42;
-  --accent: 241 245 249;
-  --accent-foreground: 15 23 42;
-  --destructive: 239 68 68;
-  --destructive-foreground: 255 255 255;
-  --border: 226 232 240;
-  --input: 226 232 240;
-  --ring: 59 130 246;
-  --background: 255 255 255;
-  --foreground: 15 23 42;
-  --muted: 241 245 249;
-  --muted-foreground: 100 116 139;
-  --popover: 255 255 255;
-  --popover-foreground: 15 23 42;
-  --card: 255 255 255;
-  --card-foreground: 15 23 42;
+/* HYPER-STRUCTURALIST THEME - Restored from Original */
+@layer base {
+  :root {
+    /* Brutalist Design System */
+    --radius: 0px; /* Sharp edges, no rounded corners */
+    
+    /* Base colors - Concrete grey background */
+    --background: 0 0% 96%; /* Slight concrete grey */
+    --foreground: 0 0% 0%; /* Pure black */
+    
+    --card: 0 0% 100%;
+    --card-foreground: 0 0% 0%;
+    
+    --popover: 0 0% 100%;
+    --popover-foreground: 0 0% 0%;
+    
+    /* Electric Indigo as primary, Safety Orange as functional accent */
+    --primary: 262 80% 50%; /* Electric Indigo */
+    --primary-foreground: 0 0% 100%;
+    
+    --secondary: 0 0% 90%;
+    --secondary-foreground: 0 0% 0%;
+    
+    --muted: 0 0% 92%;
+    --muted-foreground: 0 0% 40%;
+    
+    --accent: 262 80% 96%; /* Light Electric Indigo */
+    --accent-foreground: 262 80% 40%;
+    
+    --destructive: 0 100% 50%; /* Safety Orange for destructive actions */
+    --destructive-foreground: 0 0% 100%;
+    
+    --border: 0 0% 0%; /* Pure black borders */
+    --input: 0 0% 0%;
+    --ring: 262 80% 50%; /* Electric Indigo focus ring */
+  }
+  
+  .dark {
+    --background: 0 0% 5%; /* Dark concrete */
+    --foreground: 0 0% 98%;
+    
+    --card: 0 0% 8%;
+    --card-foreground: 0 0% 98%;
+    
+    --popover: 0 0% 8%;
+    --popover-foreground: 0 0% 98%;
+    
+    --primary: 262 80% 65%; /* Brighter Electric Indigo in dark mode */
+    --primary-foreground: 0 0% 0%;
+    
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 98%;
+    
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    
+    --accent: 262 80% 15%; /* Dark Electric Indigo accent */
+    --accent-foreground: 0 0% 98%;
+    
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+    
+    --border: 0 0% 100%;
+    --input: 0 0% 100%;
+    --ring: 262 80% 65%;
+  }
+
+  * {
+    border-color: hsl(var(--border));
+  }
+  
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-feature-settings: 'rlig' 1, 'calt' 1;
+    -webkit-font-smoothing: antialiased;
+  }
+  
+  /* Brutalist Scrollbar - Sharp and Technical */
+  ::-webkit-scrollbar {
+    width: 12px;
+    height: 12px;
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-left: 2px solid hsl(var(--border));
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background: hsl(var(--foreground));
+    border: 2px solid hsl(var(--muted));
+  }
+  
+  ::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary));
+  }
+
+  /* Technical Grid Background */
+  .bg-grid-pattern {
+    background-size: 40px 40px;
+    background-image: 
+      linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+  }
+  
+  .dark .bg-grid-pattern {
+    background-image: 
+      linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px);
+  }
+
+  /* Safety Hazard Fill for Margins (The "Outside" Pattern) */
+  .bg-hatch-pattern {
+    background-color: rgba(255, 77, 0, 0.05); /* Very light orange tint */
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgba(255, 77, 0, 0.1) 0,
+      rgba(255, 77, 0, 0.1) 1px,
+      transparent 0,
+      transparent 10px
+    );
+  }
+  
+  .dark .bg-hatch-pattern {
+    background-color: rgba(255, 255, 255, 0.02);
+    background-image: repeating-linear-gradient(
+      -45deg,
+      rgba(255, 255, 255, 0.1) 0,
+      rgba(255, 255, 255, 0.1) 1px,
+      transparent 0,
+      transparent 10px
+    );
+  }
+
+  /* Remove default outlines and use sharp focus rings */
+  *:focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+  }
+  
+  /* --- TIPTAP PROSEMIRROR STYLES --- */
+  .ProseMirror {
+    outline: none;
+    min-height: 60px;
+  }
+  
+  .ProseMirror p.is-editor-empty:first-child::before {
+    color: #adb5bd;
+    content: attr(data-placeholder);
+    float: left;
+    height: 0;
+    pointer-events: none;
+  }
+  
+  .ProseMirror h1 {
+    font-size: 1.8em;
+    font-weight: 800;
+    margin-top: 0.5em;
+    margin-bottom: 0.2em;
+    line-height: 1.1;
+  }
+  
+  .ProseMirror h2 {
+    font-size: 1.4em;
+    font-weight: 700;
+    margin-top: 0.5em;
+    margin-bottom: 0.2em;
+    line-height: 1.1;
+  }
+  
+  .ProseMirror ul, .ProseMirror ol {
+    padding: 0 1rem;
+    margin: 0.5rem 0;
+  }
+  
+  .ProseMirror ul { 
+    list-style-type: disc; 
+  }
+  
+  .ProseMirror ol { 
+    list-style-type: decimal; 
+  }
+  
+  .ProseMirror blockquote {
+    border-left: 3px solid rgba(0,0,0,0.1);
+    padding-left: 1rem;
+    font-style: italic;
+  }
+  
+  .dark .ProseMirror blockquote {
+    border-left: 3px solid rgba(255,255,255,0.1);
+  }
 }
 
-.dark {
-  --primary: 59 130 246;
-  --primary-foreground: 255 255 255;
-  --secondary: 30 41 59;
-  --secondary-foreground: 248 250 252;
-  --accent: 30 41 59;
-  --accent-foreground: 248 250 252;
-  --destructive: 239 68 68;
-  --destructive-foreground: 255 255 255;
-  --border: 30 41 59;
-  --input: 30 41 59;
-  --ring: 59 130 246;
-  --background: 2 6 23;
-  --foreground: 248 250 252;
-  --muted: 30 41 59;
-  --muted-foreground: 148 163 184;
-  --popover: 2 6 23;
-  --popover-foreground: 248 250 252;
-  --card: 2 6 23;
-  --card-foreground: 248 250 252;
-}
-
-body {
-  background: rgb(var(--background));
-  color: rgb(var(--foreground));
-  font-feature-settings: 'rlig' 1, 'calt' 1;
+/* Utility classes */
+@layer utilities {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  /* Brutalist Shadow System */
+  .shadow-sharp {
+    box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+  }
+  
+  .shadow-sharp-sm {
+    box-shadow: 2px 2px 0px 0px rgba(0,0,0,1);
+  }
+  
+  .shadow-sharp-hover:hover {
+    box-shadow: 6px 6px 0px 0px rgba(0,0,0,1);
+  }
+  
+  .shadow-sharp-dark {
+    box-shadow: 4px 4px 0px 0px #ffffff;
+  }
+  
+  .shadow-brutal {
+    box-shadow: 8px 8px 0px 0px #000000;
+  }
+  
+  /* Custom Technical Colors */
+  .text-tech-orange {
+    color: #FF4D00;
+  }
+  
+  .text-tech-blue {
+    color: #0033FF;
+  }
+  
+  .bg-tech-orange {
+    background-color: #FF4D00;
+  }
+  
+  .bg-tech-blue {
+    background-color: #0033FF;
+  }
+  
+  .border-tech-orange {
+    border-color: #FF4D00;
+  }
+  
+  .border-tech-blue {
+    border-color: #0033FF;
+  }
 }

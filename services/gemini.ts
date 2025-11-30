@@ -3,7 +3,7 @@
  * To enable, install @google/generation-ai and configure the service
  */
 
-import { BlockType, DocBlock } from '@/types';
+import { BlockType, DocBlock } from '@/types/block';
 
 export const generateDocumentFromPrompt = async (prompt: string): Promise<{ title: string, blocks: DocBlock[] }> => {
   console.warn('Gemini AI service is disabled - returning placeholder');

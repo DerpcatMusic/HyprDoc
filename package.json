@@ -24,21 +24,25 @@
     "pdfjs-dist": "latest",
     "react": "latest",
     "react-dom": "latest",
+    "react-markdown": "^10.1.0",
     "signature_pad": "latest",
     "sonner": "latest",
     "tailwind-merge": "latest",
     "zustand": "latest"
   },
   "devDependencies": {
-    "@tailwindcss/postcss": "^4.1.17",
     "@types/node": "latest",
     "@types/react": "latest",
     "@types/react-dom": "latest",
+    "@typescript-eslint/eslint-plugin": "^8.48.0",
+    "@typescript-eslint/parser": "^8.48.0",
     "autoprefixer": "latest",
-    "eslint": "latest",
+    "baseline-browser-mapping": "^2.8.32",
+    "eslint": "^9.39.1",
     "eslint-config-next": "latest",
+    "eslint-plugin-react-hooks": "^7.0.1",
     "postcss": "latest",
-    "tailwindcss": "latest",
+    "tailwindcss": "^3.4.17",
     "typescript": "latest"
   }
 }

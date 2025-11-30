@@ -6,7 +6,7 @@ const protectedRoutes = ['/dashboard', '/settings', '/editor', '/profile']
 // Public routes that should redirect authenticated users
 const publicRoutes = ['/auth', '/auth/login', '/auth/register']
 
-export async function middleware(request: NextRequest) {
+export function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
   const origin = request.nextUrl.origin
   const requestHeaders = new Headers(request.headers)
@@ -26,11 +26,12 @@ export async function middleware(request: NextRequest) {
   
   // Enhanced CSP for Next.js
   const csp = [
-    "default-src 'self'",
-    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com",
-    "style-src 'self' 'unsafe-inline'",
+    "default-src 'self' https://jlgqpslemxirboufbviq.supabase.co",
+    "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://apis.google.com https://jlgqpslemxirboufbviq.supabase.co",
+    "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
     "img-src 'self' data: https: blob:",
-    "font-src 'self'",
+    "font-src 'self' https://fonts.gstatic.com",
+    "connect-src 'self' https://jlgqpslemxirboufbviq.supabase.co https://*.supabase.co",
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",

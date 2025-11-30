@@ -1,5 +1,5 @@
 
-import { Term } from "../types";
+import type { Term } from "../types/block";
 
 export const STANDARD_LEGAL_TERMS: Term[] = [
     {

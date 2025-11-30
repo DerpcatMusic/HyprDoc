@@ -1,5 +1,5 @@
 
-import { EventType, AuditLogEntry } from '../types';
+import type { EventType, AuditLogEntry } from '../types/audit';
 
 // In a real app, this would be a Supabase client
 // import { createClient } from '@supabase/supabase-js';
@@ -18,9 +18,9 @@ export const logEvent = async (
         timestamp: Date.now(),
         action,
         user,
-        details,
         ipAddress: '127.0.0.1', // Mock IP
-        eventData: data
+        ...(details && { details }),
+        ...(data && { eventData: data })
     };
 
     console.log(`[AUDIT] ${action.toUpperCase()}: ${details || ''}`, entry);

@@ -6,10 +6,10 @@ import { useDocument } from '../context/DocumentContext';
 
 interface SignatureWidgetProps {
     onSign: (dataUrl: string) => void;
-    initialValue?: string;
-    signatureId?: string;
-    signedAt?: number;
-    disabled?: boolean;
+    initialValue?: string | undefined;
+    signatureId?: string | undefined;
+    signedAt?: number | undefined;
+    disabled?: boolean | undefined;
 }
 
 export const SignatureWidget: React.FC<SignatureWidgetProps> = ({ onSign, initialValue, signatureId, signedAt, disabled }) => {
