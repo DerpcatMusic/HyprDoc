@@ -1,30 +1,20 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React from 'react';
 import { useRouter } from 'next/navigation';
 import { DashboardView } from '@/components/views/DashboardView';
 import { DocumentState, AuditLogEntry } from '@/types';
-import { SupabaseService, DocMeta } from '@/services/supabase';
+import { useQuery, useMutation, api } from '@/lib/convex';
 
 export default function DashboardPage() {
     const router = useRouter();
-    const [auditLog, setAuditLog] = useState<AuditLogEntry[]>([]);
-    const [docList, setDocList] = useState<DocMeta[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    const documents = useQuery(api.documents.list) ?? [];
+    const createDocument = useMutation(api.documents.create);
 
-    const refreshDocs = async () => {
-        setIsLoading(true);
-        const docs = await SupabaseService.listDocuments();
-        setDocList(docs);
-        setIsLoading(false);
-    };
-
-    useEffect(() => {
-        refreshDocs();
-    }, []);
-
-    const handleCreateDocument = () => {
-        const newId = crypto.randomUUID();
+    const handleCreateDocument = async () => {
+        const newId = await createDocument({
+            title: 'Untitled Document',
+        });
         router.push(`/doc/${newId}/edit`);
     };
 
@@ -33,14 +23,13 @@ export default function DashboardPage() {
     };
 
     const handleImportDocument = (doc: DocumentState) => {
-        // This would need to be implemented with the Document context
         console.log('Importing document:', doc);
     };
 
     return (
         <DashboardView
-            documents={docList.map(doc => ({
-                id: doc.id,
+            documents={documents.map(doc => ({
+                id: doc.id as string,
                 title: doc.title,
                 status: doc.status as DocumentState['status'],
                 blocks: [],
@@ -48,7 +37,7 @@ export default function DashboardPage() {
                 variables: [],
                 terms: [],
                 auditLog: [],
-                updatedAt: Date.now(),
+                updatedAt: doc.updated_at,
                 settings: {
                     signingOrder: 'parallel',
                     emailReminders: false,
@@ -59,7 +48,7 @@ export default function DashboardPage() {
                     direction: 'ltr'
                 }
             }))}
-            auditLog={auditLog}
+            auditLog={[]}
             onCreate={handleCreateDocument}
             onSelect={handleSelectDocument}
             onImport={handleImportDocument}

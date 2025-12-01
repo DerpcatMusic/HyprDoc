@@ -66,7 +66,9 @@ export const hashDocument = async (doc: {
         const data = encoder.encode(jsonString);
 
         // 3. Hash
-        const hashBuffer = await window.crypto.subtle.digest('SHA-256', data);
+        // 3. Hash
+        const subtle = typeof window !== 'undefined' ? window.crypto.subtle : crypto.subtle;
+        const hashBuffer = await subtle.digest('SHA-256', data);
 
         // 4. Convert to Hex String
         const hashArray = Array.from(new Uint8Array(hashBuffer));

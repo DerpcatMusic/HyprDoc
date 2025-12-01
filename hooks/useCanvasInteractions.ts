@@ -1,5 +1,5 @@
 import { useCallback, useRef } from 'react';
-import { DocBlock, BlockType } from '../types/block';
+import { DocBlock, BlockType, DropPosition } from '../types/block';
 
 /**
  * Custom hook for managing canvas interactions (click, drag, drop)
@@ -9,12 +9,12 @@ export const useCanvasInteractions = (
     blocks: DocBlock[],
     selectedBlockId: string | null,
     onSelectBlock: (id: string) => void,
-    onAddBlock: (type: BlockType, targetId?: string, position?: any) => void,
-    onDropBlock: (e: React.DragEvent, targetId: string, position: any) => void,
-    addBlock: (type: BlockType, targetId?: string, position?: any) => void,
-    moveBlock: (id: string, targetId: string | undefined, position: any) => void
+    onAddBlock: (type: BlockType, targetId?: string, position?: DropPosition) => void,
+    onDropBlock: (e: React.DragEvent, targetId: string, position: DropPosition) => void,
+    addBlock: (type: BlockType, targetId?: string, position?: DropPosition) => void,
+    moveBlock: (id: string, targetId: string | undefined, position: DropPosition) => void
 ) => {
-    const dragDataRef = useRef<{ type: 'new' | 'existing'; value: string; position?: any } | null>(null);
+    const dragDataRef = useRef<{ type: 'new' | 'existing'; value: string; position?: DropPosition } | null>(null);
     
     // Handle drag start for blocks
     const handleDragStartBlock = useCallback((e: React.DragEvent, id: string) => {
@@ -55,7 +55,7 @@ export const useCanvasInteractions = (
     }, [addBlock, moveBlock]);
     
     // Handle drop on specific block
-    const handleBlockDrop = useCallback((e: React.DragEvent, targetId: string, position: any) => {
+    const handleBlockDrop = useCallback((e: React.DragEvent, targetId: string, position: DropPosition) => {
         try {
             e.preventDefault();
             e.stopPropagation();

@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { BlockType, DocBlock, FormValues, Party, DocumentSettings, Variable, Term } from '../types';
+import { BlockType, DocBlock, FormValues, FormValue, Party, DocumentSettings, Variable, Term } from '../types';
 import { Plus, Trash, AlertCircle, RefreshCw, UploadCloud, X, CreditCard, Lock, Video, Eye, Eraser, ArrowRight, CheckCircle2, Navigation, ChevronRight, ChevronLeft, Flag, AlertTriangle, Phone, Image as ImageIcon, ArrowDown, FileText, Repeat, Trash2, Calculator, ArrowRightLeft, Quote, Info, XOctagon, Landmark, QrCode, ShieldCheck, FileUp, ChevronDown } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
 import { Button, Input, Card, Label, Switch, cn, Badge, Checkbox, Textarea } from './ui-components';
@@ -10,6 +10,8 @@ import { LEGAL_DICTIONARY_DB } from '../services/glossary';
 import { SafeFormula } from '../services/formula';
 import { PaymentService, formatCurrency } from '../services/payments';
 import { SupabaseService } from '../services/supabase';
+import { usePermission } from '../hooks/usePermission';
+import { hashDocument } from '../services/crypto';
 
 interface ViewerProps {
   blocks: DocBlock[];
@@ -173,7 +175,7 @@ interface BlockRendererProps {
     index: number;
     idPrefix?: string;
     formValues: FormValues;
-    handleInputChange: (id: string, val: any) => void;
+    handleInputChange: (id: string, val: FormValue) => void;
     parties: Party[];
     simulatedPartyId: string;
     activeFieldIndex: number;
@@ -187,18 +189,27 @@ interface BlockRendererProps {
     docHash?: string | undefined;
     docSettings?: DocumentSettings | undefined;
     onSignBlock: (blockId: string, url: string) => void;
-    documentCompleted: boolean; 
+    documentCompleted: boolean;
+    isPreview?: boolean;
 }
 
 const BlockRenderer: React.FC<BlockRendererProps> = (props) => {
-    const { block, index, idPrefix = '', formValues, handleInputChange, parties, simulatedPartyId, activeFieldIndex, renderTextWithGlossary, allBlocksFlat, renderRecursive, userCurrencyPreferences, setUserCurrencyPreferences, validationErrors, globalVariables, docHash, docSettings, onSignBlock, documentCompleted } = props;
+    const { block, index, idPrefix = '', formValues, handleInputChange, parties, simulatedPartyId, activeFieldIndex, renderTextWithGlossary, allBlocksFlat, renderRecursive, userCurrencyPreferences, setUserCurrencyPreferences, validationErrors, globalVariables, docHash, docSettings, onSignBlock, documentCompleted, isPreview } = props;
     
     const uniqueId = idPrefix + block.id;
     const isLayoutBlock = [BlockType.SPACER, BlockType.ALERT, BlockType.QUOTE, BlockType.SECTION_BREAK, BlockType.COLUMNS, BlockType.COLUMN, BlockType.TEXT, BlockType.HTML].includes(block.type);
     const assignedParty = isLayoutBlock ? undefined : parties.find(p => p.id === block.assignedToPartyId);
     
-    // Lock if: Assigned to other, OR document is globally completed
-    const isLocked = documentCompleted || (assignedParty && assignedParty.id !== simulatedPartyId);
+    // Permission Logic
+    const { canEdit: realCanEdit } = usePermission(block.assignedToPartyId);
+    
+    // In Preview: Use simulated party. In Real: Use real permission.
+    const canEdit = isPreview 
+        ? (block.assignedToPartyId ? block.assignedToPartyId === simulatedPartyId : true)
+        : realCanEdit;
+
+    // Lock if: Document completed OR (Assigned to someone AND !canEdit)
+    const isLocked = documentCompleted || (!!block.assignedToPartyId && !canEdit);
     const isActive = index === activeFieldIndex;
 
     // Common Input Styles to ensure consistency
@@ -569,7 +580,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
       setFormValues(initial);
   }, [allBlocksFlat]);
 
-  const handleInputChange = (id: string, val: any) => {
+  const handleInputChange = (id: string, val: FormValue) => {
       setFormValues(prev => ({ ...prev, [id]: val }));
       if (validationErrors[id]) {
           setValidationErrors(p => { const n = {...p}; delete n[id]; return n; });
@@ -586,7 +597,7 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
               
               let locationString = '';
               try {
-                  const pos: any = await new Promise((resolve, reject) => {
+                  const pos: GeolocationPosition = await new Promise((resolve, reject) => {
                       navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 4000 });
                   });
                   if (pos && pos.coords) {
@@ -596,6 +607,15 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                   // Geo permission denied
               }
 
+              // Calculate Integrity Hash
+              const integrityHash = await hashDocument({
+                  blocks,
+                  parties,
+                  settings,
+                  terms,
+                  variables
+              });
+
               const result = await SupabaseService.signDocumentBlock(
                   docId, 
                   blockId, 
@@ -604,7 +624,8 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
                     timestamp: Date.now(),
                     ip,
                     userAgent,
-                    location: locationString
+                    location: locationString,
+                    integrityHash
                   }, 
                   simulatedPartyId,
                   verifiedIdentifier 
@@ -673,7 +694,8 @@ export const Viewer: React.FC<ViewerProps> = ({ blocks, snapshot, parties = [], 
         docHash={docHash}
         docSettings={settings}
         onSignBlock={handleSignBlock}
-        documentCompleted={isCompleted} 
+        documentCompleted={isCompleted}
+        isPreview={isPreview}
       />
   );
 

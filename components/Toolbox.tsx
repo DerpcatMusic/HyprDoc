@@ -1,5 +1,6 @@
 import React from 'react';
 import { BlockType } from '../types';
+import type { LucideIcon } from 'lucide-react';
 import { 
     Type, AlignLeft, Minus, Image as ImageIcon,
     Settings, List, CheckSquare, Calendar, FileSignature, 
@@ -13,7 +14,13 @@ interface ToolboxProps {
     onAddBlock: (type: BlockType) => void;
 }
 
-const ToolItem = ({ type, icon: Icon, label, onDragStart, onClick }: { type: BlockType, icon: any, label: string, onDragStart: any, onClick: any }) => (
+const ToolItem = ({ type, icon: Icon, label, onDragStart, onClick }: { 
+    type: BlockType; 
+    icon: LucideIcon; 
+    label: string; 
+    onDragStart: (e: React.DragEvent, type: BlockType) => void; 
+    onClick: (type: BlockType) => void 
+}) => (
     <div 
       draggable
       onDragStart={(e) => onDragStart(e, type)}

@@ -17,7 +17,7 @@ export default function DashboardLayout({
     children: React.ReactNode;
 }) {
     const pathname = usePathname();
-    const { user, signOut } = useAuth();
+    const { user, isLoaded } = useAuth();
     const [isDarkMode, setIsDarkMode] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
@@ -98,7 +98,12 @@ export default function DashboardLayout({
                     <div className="w-full h-px bg-black/10 dark:bg-white/10" />
                     <button 
                         className="w-10 h-10 flex items-center justify-center border-2 border-transparent hover:border-red-500 hover:text-red-500 text-muted-foreground transition-all"
-                        onClick={signOut}
+                        onClick={() => {
+                            // Use Clerk's signOut
+                            if (typeof window !== 'undefined') {
+                                window.location.href = '/sign-in';
+                            }
+                        }}
                         title="Sign Out"
                     >
                         <LogOut size={20} />

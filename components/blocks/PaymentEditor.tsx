@@ -18,7 +18,7 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
 
     const enabledProviders = settings.enabledProviders || [];
 
-    const handleSettingChange = (key: string, value: any) => {
+    const handleSettingChange = (key: string, value: string | number | boolean) => {
         onUpdate(block.id, { 
             paymentSettings: { ...settings, [key]: value } 
         });
@@ -38,7 +38,7 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
     
     // Check global configuration status
     const isConfigured = (provider: string) => {
-        const gateways = docSettings?.paymentGateways as any;
+        const gateways = docSettings?.paymentGateways as Record<string, any> | undefined;
         if (!gateways) return false;
         const config = gateways[provider];
         if (!config) return false;

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback, memo } from 'react';
-import { DocBlock, Party, BlockType, DocumentSettings, Variable } from '../types';
+import { DocBlock, Party, BlockType, DocumentSettings, Variable, DropPosition } from '../types';
 import { EditorBlock } from './EditorBlock';
 import { Button, cn, Dialog, DialogContent, DialogHeader, DialogTitle } from './ui-components';
 import { useDocument } from '../context/DocumentContext';
@@ -25,7 +25,7 @@ interface EditorCanvasProps {
     onUpdateBlock: (id: string, u: Partial<DocBlock>) => void;
     onDeleteBlock: (id: string) => void;
     onAddBlock: (type: BlockType) => void;
-    onDropBlock: (e: React.DragEvent, targetId: string, position: any) => void;
+    onDropBlock: (e: React.DragEvent, targetId: string, position: DropPosition) => void;
     onUpdateParty: (index: number, p: Party) => void;
     onUpdateVariables: (vars: Variable[]) => void;
 }

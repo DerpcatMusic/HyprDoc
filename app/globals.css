@@ -1,69 +1,135 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import 'tailwindcss';
+
+@theme {
+  --font-sans: 'Inter', 'sans-serif';
+  --font-mono: 'JetBrains Mono', 'monospace';
+  --font-signature: 'Dancing Script', 'cursive';
+
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+
+  --color-tech-orange: #ff4d00;
+  --color-tech-blue: #0033ff;
+
+  --radius-lg: 0px;
+  --radius-md: 0px;
+  --radius-sm: 0px;
+  --radius: 0px;
+
+  --shadow-sharp: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-sharp-sm: 2px 2px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-sharp-hover: 6px 6px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-sharp-dark: 4px 4px 0px 0px #ffffff;
+  --shadow-brutal: 8px 8px 0px 0px #000000;
+
+  --animate-pulse-fast: pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-accordion-down: accordion-down 0.2s ease-out;
+  --animate-accordion-up: accordion-up 0.2s ease-out;
+
+  @keyframes accordion-down {
+    from {
+      height: 0;
+    }
+    to {
+      height: var(--radix-accordion-content-height);
+    }
+  }
+  @keyframes accordion-up {
+    from {
+      height: var(--radix-accordion-content-height);
+    }
+    to {
+      height: 0;
+    }
+  }
+}
 
 /* HYPER-STRUCTURALIST THEME - Restored from Original */
 @layer base {
   :root {
     /* Brutalist Design System */
     --radius: 0px; /* Sharp edges, no rounded corners */
-    
+
     /* Base colors - Concrete grey background */
     --background: 0 0% 96%; /* Slight concrete grey */
     --foreground: 0 0% 0%; /* Pure black */
-    
+
     --card: 0 0% 100%;
     --card-foreground: 0 0% 0%;
-    
+
     --popover: 0 0% 100%;
     --popover-foreground: 0 0% 0%;
-    
+
     /* Electric Indigo as primary, Safety Orange as functional accent */
     --primary: 262 80% 50%; /* Electric Indigo */
     --primary-foreground: 0 0% 100%;
-    
+
     --secondary: 0 0% 90%;
     --secondary-foreground: 0 0% 0%;
-    
+
     --muted: 0 0% 92%;
     --muted-foreground: 0 0% 40%;
-    
+
     --accent: 262 80% 96%; /* Light Electric Indigo */
     --accent-foreground: 262 80% 40%;
-    
+
     --destructive: 0 100% 50%; /* Safety Orange for destructive actions */
     --destructive-foreground: 0 0% 100%;
-    
+
     --border: 0 0% 0%; /* Pure black borders */
     --input: 0 0% 0%;
     --ring: 262 80% 50%; /* Electric Indigo focus ring */
   }
-  
+
   .dark {
     --background: 0 0% 5%; /* Dark concrete */
     --foreground: 0 0% 98%;
-    
+
     --card: 0 0% 8%;
     --card-foreground: 0 0% 98%;
-    
+
     --popover: 0 0% 8%;
     --popover-foreground: 0 0% 98%;
-    
+
     --primary: 262 80% 65%; /* Brighter Electric Indigo in dark mode */
     --primary-foreground: 0 0% 0%;
-    
+
     --secondary: 0 0% 15%;
     --secondary-foreground: 0 0% 98%;
-    
+
     --muted: 0 0% 15%;
     --muted-foreground: 0 0% 60%;
-    
+
     --accent: 262 80% 15%; /* Dark Electric Indigo accent */
     --accent-foreground: 0 0% 98%;
-    
+
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
-    
+
     --border: 0 0% 100%;
     --input: 0 0% 100%;
     --ring: 262 80% 65%;
@@ -72,30 +138,30 @@
   * {
     border-color: hsl(var(--border));
   }
-  
+
   body {
     background-color: hsl(var(--background));
     color: hsl(var(--foreground));
     font-feature-settings: 'rlig' 1, 'calt' 1;
     -webkit-font-smoothing: antialiased;
   }
-  
+
   /* Brutalist Scrollbar - Sharp and Technical */
   ::-webkit-scrollbar {
     width: 12px;
     height: 12px;
   }
-  
+
   ::-webkit-scrollbar-track {
     background: hsl(var(--muted));
     border-left: 2px solid hsl(var(--border));
   }
-  
+
   ::-webkit-scrollbar-thumb {
     background: hsl(var(--foreground));
     border: 2px solid hsl(var(--muted));
   }
-  
+
   ::-webkit-scrollbar-thumb:hover {
     background: hsl(var(--primary));
   }
@@ -103,15 +169,13 @@
   /* Technical Grid Background */
   .bg-grid-pattern {
     background-size: 40px 40px;
-    background-image: 
-      linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+    background-image: linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
   }
-  
+
   .dark .bg-grid-pattern {
-    background-image: 
-      linear-gradient(to right, rgba(255,255,255,0.08) 1px, transparent 1px),
-      linear-gradient(to bottom, rgba(255,255,255,0.08) 1px, transparent 1px);
+    background-image: linear-gradient(to right, rgba(255, 255, 255, 0.08) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(255, 255, 255, 0.08) 1px, transparent 1px);
   }
 
   /* Safety Hazard Fill for Margins (The "Outside" Pattern) */
@@ -125,7 +189,7 @@
       transparent 10px
     );
   }
-  
+
   .dark .bg-hatch-pattern {
     background-color: rgba(255, 255, 255, 0.02);
     background-image: repeating-linear-gradient(
@@ -142,13 +206,13 @@
     outline: 2px solid hsl(var(--primary));
     outline-offset: 2px;
   }
-  
+
   /* --- TIPTAP PROSEMIRROR STYLES --- */
   .ProseMirror {
     outline: none;
     min-height: 60px;
   }
-  
+
   .ProseMirror p.is-editor-empty:first-child::before {
     color: #adb5bd;
     content: attr(data-placeholder);
@@ -156,7 +220,7 @@
     height: 0;
     pointer-events: none;
   }
-  
+
   .ProseMirror h1 {
     font-size: 1.8em;
     font-weight: 800;
@@ -164,7 +228,7 @@
     margin-bottom: 0.2em;
     line-height: 1.1;
   }
-  
+
   .ProseMirror h2 {
     font-size: 1.4em;
     font-weight: 700;
@@ -172,28 +236,29 @@
     margin-bottom: 0.2em;
     line-height: 1.1;
   }
-  
-  .ProseMirror ul, .ProseMirror ol {
+
+  .ProseMirror ul,
+  .ProseMirror ol {
     padding: 0 1rem;
     margin: 0.5rem 0;
   }
-  
-  .ProseMirror ul { 
-    list-style-type: disc; 
+
+  .ProseMirror ul {
+    list-style-type: disc;
   }
-  
-  .ProseMirror ol { 
-    list-style-type: decimal; 
+
+  .ProseMirror ol {
+    list-style-type: decimal;
   }
-  
+
   .ProseMirror blockquote {
-    border-left: 3px solid rgba(0,0,0,0.1);
+    border-left: 3px solid rgba(0, 0, 0, 0.1);
     padding-left: 1rem;
     font-style: italic;
   }
-  
+
   .dark .ProseMirror blockquote {
-    border-left: 3px solid rgba(255,255,255,0.1);
+    border-left: 3px solid rgba(255, 255, 255, 0.1);
   }
 }
 
@@ -202,50 +267,50 @@
   .text-balance {
     text-wrap: balance;
   }
-  
+
   /* Brutalist Shadow System */
   .shadow-sharp {
-    box-shadow: 4px 4px 0px 0px rgba(0,0,0,1);
+    box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 1);
   }
-  
+
   .shadow-sharp-sm {
-    box-shadow: 2px 2px 0px 0px rgba(0,0,0,1);
+    box-shadow: 2px 2px 0px 0px rgba(0, 0, 0, 1);
   }
-  
+
   .shadow-sharp-hover:hover {
-    box-shadow: 6px 6px 0px 0px rgba(0,0,0,1);
+    box-shadow: 6px 6px 0px 0px rgba(0, 0, 0, 1);
   }
-  
+
   .shadow-sharp-dark {
     box-shadow: 4px 4px 0px 0px #ffffff;
   }
-  
+
   .shadow-brutal {
     box-shadow: 8px 8px 0px 0px #000000;
   }
-  
+
   /* Custom Technical Colors */
   .text-tech-orange {
-    color: #FF4D00;
+    color: #ff4d00;
   }
-  
+
   .text-tech-blue {
-    color: #0033FF;
+    color: #0033ff;
   }
-  
+
   .bg-tech-orange {
-    background-color: #FF4D00;
+    background-color: #ff4d00;
   }
-  
+
   .bg-tech-blue {
-    background-color: #0033FF;
+    background-color: #0033ff;
   }
-  
+
   .border-tech-orange {
-    border-color: #FF4D00;
+    border-color: #ff4d00;
   }
-  
+
   .border-tech-blue {
-    border-color: #0033FF;
+    border-color: #0033ff;
   }
 }

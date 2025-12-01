@@ -51,7 +51,7 @@ export const ConditionalZone: React.FC<EditorBlockProps> = ({
         else onDrop(e, block.id, 'inside-false');
     };
 
-    const safeUpdateCondition = (key: string, value: any) => {
+    const safeUpdateCondition = (key: string, value: string | number | boolean) => {
         const currentCondition = block.condition || { variableName: '', operator: 'equals', value: '' };
         onUpdate(block.id, { condition: { ...currentCondition, [key]: value } });
     };

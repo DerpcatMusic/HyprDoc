@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { DocumentSettings, Integration, Party } from '../../types';
+import { DocumentSettings, Integration, Party, GlobalPaymentSettings } from '../../types';
 import { Card, Label, Input, Button, Switch, FontPicker, ColorPicker, Tabs, TabsList, TabsTrigger, TabsContent, Badge } from '../ui-components';
 import { CreditCard, Webhook, Database, Link as LinkIcon, CheckCircle2, ArrowUp, ArrowDown, Users, Shuffle, AlignLeft, AlignRight, Landmark, QrCode, LayoutTemplate, Key } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
@@ -18,13 +18,13 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, parties, onUpdateParties, mode, isModal }) => {
     const { doc, setDoc } = useDocument();
 
-    const handleChange = (key: keyof DocumentSettings, value: any) => {
+    const handleChange = (key: keyof DocumentSettings, value: DocumentSettings[keyof DocumentSettings]) => {
         onUpdate({ ...settings, [key]: value });
     };
 
     const handleGatewayChange = (provider: string, key: string, value: string) => {
-        const gateways: any = settings?.paymentGateways || {};
-        const providerSettings = gateways[provider] || {};
+        const gateways: GlobalPaymentSettings = settings?.paymentGateways || {};
+        const providerSettings = gateways[provider as keyof GlobalPaymentSettings] || {};
         handleChange('paymentGateways', {
             ...gateways,
             [provider]: { ...providerSettings, [key]: value }

@@ -7,7 +7,7 @@ import { AuditLogEntry, EventType } from '../types/audit';
 import * as TreeManager from '../services/treeManager';
 import { logEvent } from '../services/eventLogger';
 import { hashDocument } from '../services/crypto';
-import { SupabaseService } from '../services/supabase';
+import { useQuery, useMutation, api } from '@/lib/convex';
 
 interface DocumentContextType {
     doc: DocumentState;
@@ -84,8 +84,14 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     const [past, setPast] = useState<DocumentState[]>([]);
     const [future, setFuture] = useState<DocumentState[]>([]);
 
-    // Auto-Save Logic (Debounced Sync to Supabase)
+    // Convex hooks
+    const updateDocument = useMutation(api.documents.update);
+    const getDocument = useQuery(api.documents.get, doc.id ? { id: doc.id as any } : "skip");
+    const generateUploadUrl = useMutation(api.files.generateUploadUrl);
+
+    // Auto-Save Logic (Debounced Sync to Convex)
     const isFirstRun = useRef(true);
+    
     useEffect(() => {
         if (isFirstRun.current) {
             isFirstRun.current = false;
@@ -96,23 +102,49 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
         setSaveStatus('saving');
         const timer = setTimeout(async () => {
             try {
-                await SupabaseService.saveDocument(doc);
+                await updateDocument({
+                    id: doc.id as any,
+                    title: doc.title,
+                    status: doc.status,
+                    content: {
+                        blocks: doc.blocks,
+                        parties: doc.parties,
+                        variables: doc.variables,
+                        settings: doc.settings,
+                        terms: doc.terms,
+                        auditLog: doc.auditLog || [],
+                    },
+                });
                 setSaveStatus('saved');
             } catch (e) {
+                console.error('Save error:', e);
                 setSaveStatus('error');
             }
         }, 2000); // 2s Debounce to reduce DB writes
 
         return () => clearTimeout(timer);
-    }, [doc]);
+    }, [doc, updateDocument]);
 
     const saveNow = async () => {
         if (!doc.id) return;
         setSaveStatus('saving');
         try {
-            await SupabaseService.saveDocument(doc);
+            await updateDocument({
+                id: doc.id as any,
+                title: doc.title,
+                status: doc.status,
+                content: {
+                    blocks: doc.blocks,
+                    parties: doc.parties,
+                    variables: doc.variables,
+                    settings: doc.settings,
+                    terms: doc.terms,
+                    auditLog: doc.auditLog || [],
+                },
+            });
             setSaveStatus('saved');
         } catch (e) {
+            console.error('Save error:', e);
             setSaveStatus('error');
         }
     };
@@ -140,16 +172,20 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     // --- Loading Logic ---
     const loadDocument = async (id: string) => {
         setSaveStatus('saving'); // Show loading
-        const loaded = await SupabaseService.loadDocument(id);
-        if (loaded) {
-            setDoc(loaded);
+        // Convex query will automatically update via getDocument
+        // Just set the ID to trigger the query
+        setDoc(prev => ({ ...prev, id }));
+    };
+
+    // Update doc when Convex query returns data
+    useEffect(() => {
+        if (getDocument) {
+            setDoc(getDocument as DocumentState);
             setPast([]);
             setFuture([]);
             setSaveStatus('saved');
-        } else {
-            setSaveStatus('error');
         }
-    };
+    }, [getDocument]);
 
     const createNewDocument = () => {
         const newDoc = {
@@ -339,7 +375,31 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Asset Management
     const uploadAsset = async (file: Blob, path: string) => {
-        return await SupabaseService.uploadAsset(file, path);
+        try {
+            // Get upload URL from Convex
+            const uploadUrl = await generateUploadUrl();
+            
+            // Upload file to Convex storage
+            const result = await fetch(uploadUrl, {
+                method: "POST",
+                headers: { "Content-Type": file.type },
+                body: file,
+            });
+            
+            const { storageId } = await result.json();
+            
+            // Get the public URL
+            const fileUrl = `${process.env.NEXT_PUBLIC_CONVEX_URL}/api/storage/${storageId}`;
+            return fileUrl;
+        } catch (e) {
+            console.error('Upload failed:', e);
+            // Fallback to base64
+            return new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(file);
+            });
+        }
     }
 
     return (
