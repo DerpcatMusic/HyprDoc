@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
@@ -7,61 +6,79 @@ import { ConvexProvider, ConvexReactClient } from "convex/react";
 import { AlertTriangle, WifiOff } from 'lucide-react';
 
 // --- Safe Environment Loading ---
-// Helper to get env vars from either Vite (import.meta.env) or Node/Webpack (process.env)
 const getEnv = (key: string, viteKey: string, fallback: string): string => {
+  let val = '';
   try {
     // @ts-ignore
     if (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env[viteKey]) {
       // @ts-ignore
-      const val = import.meta.env[viteKey];
-      // Filter out common invalid placeholder values
-      if (val && val !== '/' && val !== 'undefined' && val !== 'null') return val;
+      val = import.meta.env[viteKey];
     }
   } catch (e) {}
 
-  try {
-    if (typeof process !== 'undefined' && process.env && process.env[key]) {
-        const val = process.env[key];
-        if (val && val !== '/' && val !== 'undefined' && val !== 'null') return val;
-    }
-  } catch (e) {}
+  if (!val) {
+    try {
+      if (typeof process !== 'undefined' && process.env && process.env[key]) {
+          val = process.env[key] || '';
+      }
+    } catch (e) {}
+  }
 
-  return fallback;
+  // Cleanup
+  val = val ? val.trim() : '';
+  if (val.length > 1 && ((val.startsWith('"') && val.endsWith('"')) || (val.startsWith("'") && val.endsWith("'")))) {
+      val = val.substring(1, val.length - 1);
+  }
+
+  // Strict validation
+  if (!val || val === '/' || val === 'undefined' || val === 'null' || val === '') {
+      return fallback;
+  }
+  return val;
 };
 
 // Configuration with Fallbacks
+const DEFAULT_CONVEX_URL = "https://happy-otter-123.convex.cloud";
 const CLERK_PUBLISHABLE_KEY = getEnv("CLERK_PUBLISHABLE_KEY", "VITE_CLERK_PUBLISHABLE_KEY", "pk_test_ZWxlZ2FudC1ncm91cGVyLTY1LmNsZXJrLmFjY291bnRzLmRldiQ");
-// Default mock URL if environment is missing - ensures app doesn't crash on init
-let CONVEX_URL_RAW = getEnv("CONVEX_URL", "VITE_CONVEX_URL", "https://happy-otter-123.convex.cloud");
+let CONVEX_URL_RAW = getEnv("CONVEX_URL", "VITE_CONVEX_URL", DEFAULT_CONVEX_URL);
 
+// --- Initialization Logic ---
 let convexClient: ConvexReactClient | null = null;
-let initError: string | null = null;
+let isOfflineMode = false;
 
-// Strict URL Validation
 try {
+    // Ensure we have a valid URL string before passing to URL constructor inside ConvexReactClient
     if (!CONVEX_URL_RAW || !CONVEX_URL_RAW.startsWith('http')) {
-        throw new Error(`Invalid CONVEX_URL: "${CONVEX_URL_RAW}". Must be an absolute URL starting with http/https.`);
+        console.warn(`Invalid CONVEX_URL "${CONVEX_URL_RAW}". Defaulting to Offline Mode.`);
+        CONVEX_URL_RAW = DEFAULT_CONVEX_URL;
+        isOfflineMode = true;
     }
+
+    // Explicitly check for default URL to set offline flag
+    if (CONVEX_URL_RAW === DEFAULT_CONVEX_URL) {
+        isOfflineMode = true;
+    }
+
     convexClient = new ConvexReactClient(CONVEX_URL_RAW);
-} catch (e: any) {
-    console.error("CRITICAL: Convex Client Init Failed", e);
-    initError = e.message || "Failed to initialize database connection";
-    // Fallback to null client, we will handle this in the provider wrapper
+} catch (e) {
+    console.error("CRITICAL: Convex Client Init Failed. App will run in Offline Mode.", e);
+    // If client init fails, we must be offline.
+    // We create a dummy client or just null to prevent crash, 
+    // but IS_OFFLINE flag will prevent its usage.
+    isOfflineMode = true;
 }
 
-if (!CLERK_PUBLISHABLE_KEY) {
-  initError = "Missing Clerk Publishable Key";
-}
+// Export the flag for other components
+export const IS_OFFLINE = isOfflineMode;
 
 const ConvexClientProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { getToken, isSignedIn } = useAuth();
-  const [isReady, setIsReady] = useState(false);
-
+  
   useEffect(() => {
-    if (!convexClient) return;
-    
+    // If offline or client failed, do nothing
+    if (IS_OFFLINE || !convexClient) return;
+
     if (isSignedIn) {
-      // Configure Convex Auth with Clerk
       convexClient.setAuth(async () => {
         try {
           return await getToken({ template: "convex" });
@@ -73,26 +90,12 @@ const ConvexClientProvider: React.FC<{ children: React.ReactNode }> = ({ childre
     } else {
       convexClient.clearAuth();
     }
-    setIsReady(true);
   }, [getToken, isSignedIn]);
 
-  if (!convexClient) {
-      return (
-          <div className="min-h-screen flex items-center justify-center bg-red-50 p-4">
-              <div className="max-w-md bg-white border-2 border-red-500 p-6 shadow-xl">
-                  <div className="flex items-center gap-3 text-red-600 mb-4">
-                      <AlertTriangle size={32} />
-                      <h1 className="text-xl font-bold uppercase">Configuration Error</h1>
-                  </div>
-                  <p className="text-sm text-gray-700 mb-4">
-                      The application cannot connect to the backend. This is likely a missing or invalid environment variable.
-                  </p>
-                  <div className="bg-zinc-100 p-3 text-xs font-mono border rounded overflow-x-auto">
-                      {initError || "Unknown Error"}
-                  </div>
-              </div>
-          </div>
-      );
+  // If we are offline or client is missing, render children without ConvexProvider
+  // The DocumentContext will handle data persistence via LocalStorage
+  if (IS_OFFLINE || !convexClient) {
+      return <>{children}</>;
   }
 
   return <ConvexProvider client={convexClient}>{children}</ConvexProvider>;
@@ -106,7 +109,7 @@ if (!rootElement) {
 const root = ReactDOM.createRoot(rootElement);
 root.render(
   <React.StrictMode>
-    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY}>
+    <ClerkProvider publishableKey={CLERK_PUBLISHABLE_KEY} afterSignOutUrl="/">
       <ConvexClientProvider>
         <App />
       </ConvexClientProvider>

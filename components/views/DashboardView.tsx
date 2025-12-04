@@ -1,13 +1,14 @@
-
 import React, { useState, useEffect } from 'react';
 import { DocumentState, AuditLogEntry } from '../../types';
 import { Card, Button, Badge, Dialog, DialogContent, DialogHeader, DialogTitle, Textarea, Tabs, TabsList, TabsTrigger, TabsContent } from '../ui-components';
-import { FileText, PlusCircle, MoreHorizontal, Clock, CheckCircle2, Eye, PenTool, ShieldCheck, Sparkles, Loader2, RefreshCw, LayoutTemplate, Copy } from 'lucide-react';
+import { FileText, PlusCircle, MoreHorizontal, Clock, CheckCircle2, Eye, PenTool, ShieldCheck, Sparkles, Loader2, RefreshCw, LayoutTemplate, Copy, WifiOff, HardDrive } from 'lucide-react';
 import { generateAuditTrailPDF } from '../../services/auditTrail';
 import { generateDocumentFromPrompt } from '../../services/gemini';
 import { useQuery, useMutation } from "convex/react";
 import { api } from "../../convex/_generated/api";
 import { useDocument } from "../../context/DocumentContext";
+import { StorageService } from '../../services/storage';
+import { IS_OFFLINE } from '../../index';
 
 interface DashboardViewProps {
     documents: DocumentState[]; 
@@ -22,31 +23,59 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
     const [showAIGenerator, setShowAIGenerator] = useState(false);
     const [aiPrompt, setAiPrompt] = useState('');
     const [isGenerating, setIsGenerating] = useState(false);
+    const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
+    const [localDocs, setLocalDocs] = useState<any[]>([]);
     
-    // Fetch docs via Convex
-    const docList = useQuery(api.documents.list) || [];
-    const createDocMutation = useMutation(api.documents.create);
-    const isLoading = docList === undefined;
+    // Fetch docs via Convex (or skip if offline)
+    // We use skip: IS_OFFLINE to prevent attempting connection
+    const docList = useQuery(api.documents.list, IS_OFFLINE ? "skip" : {});
+    
+    // Local Load Effect
+    useEffect(() => {
+        if (IS_OFFLINE) {
+            const storedDocs = StorageService.listDocuments();
+            setLocalDocs(storedDocs);
+        }
+    }, []);
 
-    // When a user selects a doc, we set it in the context manually since we don't have routing params for useQuery in the editor context yet
+    // Combine sources based on mode
+    const displayDocs = IS_OFFLINE ? localDocs : (docList || []);
+    const isLoading = !IS_OFFLINE && docList === undefined;
+
+    const createDocMutation = useMutation(api.documents.create);
+
+    // Timeout warning only if NOT offline and still loading
+    useEffect(() => {
+        if (isLoading && !IS_OFFLINE) {
+            const timer = setTimeout(() => setShowTimeoutWarning(true), 5000);
+            return () => clearTimeout(timer);
+        } else {
+            setShowTimeoutWarning(false);
+        }
+    }, [isLoading]);
+
     const handleSelectDoc = (docId: string) => {
-        const selected = docList?.find((d: any) => d._id === docId);
-        if (selected) {
-            // Map _id to id for internal compatibility
-            setDoc({ ...selected, id: selected._id });
-            onSelect(selected._id);
+        if (IS_OFFLINE) {
+            const loaded = StorageService.loadDocument(docId);
+            if (loaded) {
+                setDoc(loaded);
+                onSelect(loaded.id!);
+            }
+        } else {
+            const selected = docList?.find((d: any) => d._id === docId);
+            if (selected) {
+                setDoc({ ...selected, id: selected._id });
+                onSelect(selected._id);
+            }
         }
     };
 
-    // Handler to create doc via context
     const handleCreate = async () => {
         await createNewDocument();
-        // createNewDocument in context updates state and saves to convex.
-        // It redirects via 'onSelect' logic in App.tsx typically, but here we trigger navigation manually if needed
-        // For now, we rely on the App.tsx to see the new ID in context? 
-        // Actually, createNewDocument in context already sets the doc state.
-        // We just need to trigger the navigation callback.
-        // Navigation logic is outside this component mostly.
+        // If offline, refresh list manually
+        if (IS_OFFLINE) {
+             setLocalDocs(StorageService.listDocuments());
+        }
         if (onCreate) onCreate();
     };
     
@@ -64,8 +93,9 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
         setIsGenerating(true);
         try {
             const { title, blocks } = await generateDocumentFromPrompt(aiPrompt);
-            // Create in Convex directly
-            const docId = await createDocMutation({
+            let docId: string;
+            
+            const newDocBase = {
                 title: title,
                 status: 'draft',
                 parties: [{ id: 'p1', name: 'Me (Owner)', color: '#3b82f6', initials: 'ME' }, { id: 'p2', name: 'Recipient', color: '#ec4899', initials: 'RE' }],
@@ -74,23 +104,20 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
                 blocks: blocks,
                 updatedAt: Date.now(),
                 auditLog: [{ id: crypto.randomUUID(), timestamp: Date.now(), action: 'created', user: 'AI Assistant', details: 'Generated from prompt' }]
-            });
-            
-            // Fetch the newly created doc to set in context
-            // In a real router setup, we'd just navigate. 
-            // For now, we simulate selection.
-            // We can construct it manually for speed.
-            const newDoc: DocumentState = {
-                id: docId,
-                title,
-                status: 'draft',
-                blocks,
-                parties: [{ id: 'p1', name: 'Me (Owner)', color: '#3b82f6', initials: 'ME' }, { id: 'p2', name: 'Recipient', color: '#ec4899', initials: 'RE' }],
-                variables: [],
-                terms: [],
-                updatedAt: Date.now(),
-                auditLog: []
             };
+
+            if (IS_OFFLINE) {
+                docId = crypto.randomUUID();
+                StorageService.saveDocument({ ...newDocBase, id: docId } as DocumentState);
+                setLocalDocs(StorageService.listDocuments());
+            } else {
+                docId = await createDocMutation(newDocBase as any);
+            }
+            
+            const newDoc: DocumentState = {
+                ...newDocBase,
+                id: docId,
+            } as DocumentState;
 
             if (onImport) {
                 onImport(newDoc);
@@ -105,8 +132,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
         }
     };
 
-    const myDocs = docList.filter((d: any) => d.status !== 'template');
-    const templates = docList.filter((d: any) => d.status === 'template');
+    const myDocs = displayDocs.filter((d: any) => d.status !== 'template');
+    const templates = displayDocs.filter((d: any) => d.status === 'template');
 
     return (
         <div className="flex-1 flex overflow-hidden bg-muted/10 dark:bg-zinc-950">
@@ -117,6 +144,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
                        <h1 className="text-3xl font-bold flex items-center gap-3">
                            Dashboard 
                            {isLoading && <Loader2 size={20} className="animate-spin text-muted-foreground"/>}
+                           {IS_OFFLINE && <Badge variant="secondary" className="gap-1 bg-amber-100 text-amber-800"><HardDrive size={12}/> LOCAL MODE</Badge>}
                        </h1>
                        <div className="flex gap-2">
                             <Button onClick={() => setShowAIGenerator(true)} className="gap-2 bg-indigo-600 hover:bg-indigo-700 text-white border-indigo-800 shadow-hypr-sm">
@@ -128,6 +156,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
                        </div>
                    </div>
                    
+                   {showTimeoutWarning && (
+                       <div className="p-4 bg-amber-50 border-2 border-amber-200 text-amber-900 flex items-start gap-3">
+                           <WifiOff size={20} className="mt-0.5" />
+                           <div className="text-sm">
+                               <p className="font-bold">Connection Slow or Failed</p>
+                               <p>Could not load documents from Convex. Please check that:</p>
+                               <ul className="list-disc pl-4 mt-1 space-y-1">
+                                   <li>Your <code>convex/auth.config.ts</code> matches your Clerk Issuer URL.</li>
+                                   <li>Your <code>VITE_CONVEX_URL</code> is correct.</li>
+                                   <li>You have run <code>npx convex dev</code>.</li>
+                               </ul>
+                           </div>
+                       </div>
+                   )}
+                   
                    <Tabs defaultValue="documents" className="w-full">
                        <TabsList className="mb-6">
                            <TabsTrigger value="documents" className="text-sm px-6">My Documents</TabsTrigger>
@@ -137,7 +180,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
                        <TabsContent value="documents">
                            <div className="grid gap-4">
                                {myDocs.map((doc: any) => (
-                                   <Card key={doc._id} className="p-4 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleSelectDoc(doc._id)}>
+                                   <Card key={doc.id || doc._id} className="p-4 flex items-center justify-between hover:border-primary/50 transition-colors cursor-pointer" onClick={() => handleSelectDoc(doc.id || doc._id)}>
                                        <div className="flex items-center gap-4">
                                            <div className="w-12 h-12 bg-primary/10 rounded-lg flex items-center justify-center text-primary">
                                                <FileText size={24} />
@@ -169,7 +212,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({ auditLog = [], onC
                        <TabsContent value="templates">
                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                {templates.map((doc: any) => (
-                                   <Card key={doc._id} className="p-6 hover:border-purple-500 transition-colors cursor-pointer group flex flex-col" onClick={() => handleSelectDoc(doc._id)}>
+                                   <Card key={doc.id || doc._id} className="p-6 hover:border-purple-500 transition-colors cursor-pointer group flex flex-col" onClick={() => handleSelectDoc(doc.id || doc._id)}>
                                        <div className="flex items-start justify-between mb-4">
                                            <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/20 text-purple-600 flex items-center justify-center rounded-none border border-purple-200">
                                                <LayoutTemplate size={20} />

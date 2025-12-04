@@ -2,15 +2,19 @@
 import { GoogleGenAI, Type, Schema } from "@google/genai";
 import { BlockType, DocBlock } from "../types";
 
+// --- Safe Environment Loading ---
+// The API key must be obtained exclusively from the environment variable process.env.API_KEY.
+// @ts-ignore
+const API_KEY = process.env.API_KEY;
+
 // Initialize Gemini Client
-// IMPORTANT: The API key must be obtained exclusively from the environment variable.
-// We do not provide a fallback to 'dummy_key' to ensure security and fail-fast behavior.
 let ai: GoogleGenAI | null = null;
+
 try {
-  if (process.env.API_KEY) {
-    ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+  if (API_KEY) {
+    ai = new GoogleGenAI({ apiKey: API_KEY });
   } else {
-    console.warn("Gemini API Key missing. AI features will be disabled.");
+    console.warn("Gemini API Key missing (process.env.API_KEY). AI features will be disabled.");
   }
 } catch (e) {
   console.error("Gemini Client Init Failed:", e);

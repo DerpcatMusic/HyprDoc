@@ -1,12 +1,13 @@
-
 import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { DocumentState, DocBlock, BlockType, AuditLogEntry, Party, DocumentSettings, EventType } from '../types';
 import * as TreeManager from '../services/treeManager';
 import { logEvent } from '../services/eventLogger';
 import { hashDocument } from '../services/crypto';
-import { useMutation, useQuery } from "convex/react";
+import { useMutation, useConvex } from "convex/react";
 import { api } from "../convex/_generated/api";
 import { useAuth } from './AuthContext';
+import { StorageService } from '../services/storage';
+import { IS_OFFLINE } from '../index'; // Flag detected in index
 
 interface DocumentContextType {
     doc: DocumentState;
@@ -16,7 +17,7 @@ interface DocumentContextType {
     
     setDoc: React.Dispatch<React.SetStateAction<DocumentState>>;
     loadDocument: (id: string) => Promise<void>;
-    createNewDocument: () => void;
+    createNewDocument: () => Promise<void>;
     setMode: (mode: 'edit' | 'preview' | 'dashboard' | 'settings' | 'recipient') => void;
     setSelectedBlockId: (id: string | null) => void;
     
@@ -75,22 +76,16 @@ const getNiceLabel = (type: BlockType): string => {
 
 export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const { user } = useAuth();
+    // Hook convex only if not offline, otherwise it might error if client is missing
+    const convex = !IS_OFFLINE ? useConvex() : null;
     const [doc, setDoc] = useState<DocumentState>(DEFAULT_DOC);
     const [mode, setMode] = useState<'edit' | 'preview' | 'dashboard' | 'settings' | 'recipient'>('dashboard');
     const [selectedBlockId, setSelectedBlockId] = useState<string | null>(null);
     const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved' | 'error'>('saved');
 
-    // Convex Mutations
-    const createDocument = useMutation(api.documents.create);
-    const updateDocument = useMutation(api.documents.update);
-    // Note: getDocument is usually a query, but we lazy load via fetch in `loadDocument` 
-    // or we could use `useQuery` if we had the ID stable in the hook.
-    // For this architecture where ID changes, we'll implement load by setting doc state manually 
-    // or by letting a View component handle the query.
-    // For now, we will simulate "load" by relying on the view to fetch, OR use a client-side fetch if Convex client exposed.
-    // Ideally, the "Editor" component should use `useQuery(api.documents.get, { id: docId })`.
-    // BUT to keep the context structure, we will just use the context state as the source of truth
-    // and sync it TO Convex.
+    // Convex Mutations (Only used if !IS_OFFLINE)
+    const createDocument = !IS_OFFLINE ? useMutation(api.documents.create) : async () => {};
+    const updateDocument = !IS_OFFLINE ? useMutation(api.documents.update) : async () => {};
 
     // History State
     const [past, setPast] = useState<DocumentState[]>([]);
@@ -98,28 +93,41 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // Function to perform save
     const performSave = async (documentState: DocumentState) => {
+        // Don't save default empty doc or if ID is missing
         if (!documentState.id) return;
         
-        // We assume document exists in Convex (created via `createNewDocument`)
-        // In Convex `id` is a specific ID type. We cast string to it for the call.
-        await updateDocument({ 
-            id: documentState.id as any,
-            title: documentState.title,
-            status: documentState.status,
-            blocks: documentState.blocks,
-            parties: documentState.parties,
-            variables: documentState.variables,
-            terms: documentState.terms,
-            settings: documentState.settings,
-            auditLog: documentState.auditLog,
-            updatedAt: Date.now(),
-            contentHtml: documentState.contentHtml,
-            snapshot: documentState.snapshot,
-            sha256: documentState.sha256
-        });
+        try {
+            if (IS_OFFLINE) {
+                // Offline fallback: Save to LocalStorage
+                StorageService.saveDocument(documentState);
+                return;
+            }
+
+            // Online Mode: Save to Convex
+            if (updateDocument) {
+                await updateDocument({ 
+                    id: documentState.id as any, // ID type handled by Convex Client
+                    title: documentState.title,
+                    status: documentState.status,
+                    blocks: documentState.blocks,
+                    parties: documentState.parties,
+                    variables: documentState.variables,
+                    terms: documentState.terms,
+                    settings: documentState.settings,
+                    auditLog: documentState.auditLog,
+                    updatedAt: Date.now(),
+                    contentHtml: documentState.contentHtml,
+                    snapshot: documentState.snapshot,
+                    sha256: documentState.sha256
+                });
+            }
+        } catch (e) {
+            console.error("Save failed:", e);
+            throw e;
+        }
     };
 
-    // Auto-Save Logic (Debounced Sync to Convex)
+    // Auto-Save Logic (Debounced Sync)
     const isFirstRun = useRef(true);
     useEffect(() => {
         if (isFirstRun.current) {
@@ -169,40 +177,82 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
 
     // --- Loading Logic ---
     const loadDocument = async (id: string) => {
-        // In a true Convex app, you'd rely on useQuery in the component.
-        // For compatibility with this context-heavy app, we accept that the
-        // view component might set the doc, OR we fetch it once here.
-        // We'll rely on the Dashboard/URL router to `setDoc` or trigger a fetch.
-        // This method is now mostly a placeholder or state resetter.
-        setSaveStatus('saved');
+        setSaveStatus('saving');
+        try {
+            if (IS_OFFLINE) {
+                const localDoc = StorageService.loadDocument(id);
+                if (localDoc) {
+                    setDoc(localDoc);
+                    setSaveStatus('saved');
+                } else {
+                    console.warn("Document not found locally:", id);
+                    setSaveStatus('error');
+                    // Could redirect here, but we'll let the UI handle the 'error' state or empty doc
+                }
+                return;
+            }
+
+            // Online Mode
+            if (convex) {
+                const fetchedDoc = await convex.query(api.documents.get, { id: id as any });
+                if (fetchedDoc) {
+                    const loadedDoc: DocumentState = {
+                        ...fetchedDoc,
+                        id: fetchedDoc._id, 
+                    };
+                    setDoc(loadedDoc);
+                    setSaveStatus('saved');
+                } else {
+                    console.error("Document not found in DB");
+                    setSaveStatus('error');
+                }
+            }
+        } catch (e) {
+            console.error("Failed to load document", e);
+            setSaveStatus('error');
+        }
     };
 
     const createNewDocument = async () => {
-        const docId = await createDocument({
-            title: "Untitled Document",
-            status: "draft",
-            blocks: [{ id: crypto.randomUUID(), type: BlockType.TEXT, content: "# Untitled\nStart typing..." }],
-            parties: INITIAL_PARTIES,
-            variables: [],
-            terms: [],
-            settings: DEFAULT_DOC.settings,
-            auditLog: [{ id: crypto.randomUUID(), timestamp: Date.now(), action: 'created', user: user?.firstName || 'Me' }],
-            updatedAt: Date.now()
-        });
+        setSaveStatus('saving');
+        try {
+            let docId: string;
+            
+            // Base new doc data
+            const timestamp = Date.now();
+            const newDocBase = {
+                title: "Untitled Document",
+                status: "draft",
+                blocks: [{ id: crypto.randomUUID(), type: BlockType.TEXT, content: "# Untitled\nStart typing..." }],
+                parties: INITIAL_PARTIES,
+                variables: [],
+                terms: [],
+                settings: DEFAULT_DOC.settings,
+                auditLog: [{ id: crypto.randomUUID(), timestamp, action: 'created', user: user?.firstName || 'Me' }],
+                updatedAt: timestamp
+            };
 
-        const newDoc = {
-            ...DEFAULT_DOC,
-            id: docId,
-            ownerId: user?.id,
-            updatedAt: Date.now(),
-            blocks: [{ id: crypto.randomUUID(), type: BlockType.TEXT, content: "# Untitled\nStart typing..." }],
-            auditLog: [{ id: crypto.randomUUID(), timestamp: Date.now(), action: 'created', user: user?.firstName || 'Me' }]
-        } as DocumentState;
-        
-        setDoc(newDoc);
-        setPast([]);
-        setFuture([]);
-        setSaveStatus('saved'); 
+            if (IS_OFFLINE) {
+                docId = crypto.randomUUID();
+                StorageService.saveDocument({ ...newDocBase, id: docId } as DocumentState);
+            } else {
+                docId = await createDocument(newDocBase);
+            }
+
+            const newDoc = {
+                ...newDocBase,
+                id: docId,
+                ownerId: user?.id,
+            } as DocumentState;
+            
+            setDoc(newDoc);
+            setPast([]);
+            setFuture([]);
+            setSaveStatus('saved'); 
+        } catch (e) {
+            console.error("Failed to create document", e);
+            setSaveStatus('error');
+        }
     };
 
     // --- History Management ---
@@ -376,9 +426,7 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({ chil
     
     // Asset Management
     const uploadAsset = async (file: Blob, path: string): Promise<string | null> => {
-        // Convex handles file storage differently (storage.store), simplified for now
-        // to just return a base64 string for direct embedding as this is a migration from Supabase.
-        // In a real app, use `generateUploadUrl` and `storage`.
+        // Simple base64 fallback for offline or quick demo
         return new Promise((resolve) => {
             const reader = new FileReader();
             reader.onloadend = () => resolve(reader.result as string);
