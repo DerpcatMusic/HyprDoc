@@ -1,0 +1,343 @@
+@import "tailwindcss";
+
+/* Tell Tailwind v4 to scan all your React components for utility classes */
+@source "./components/**/*.{ts,tsx}";
+@source "./context/**/*.{ts,tsx}";
+@source "./hooks/**/*.{ts,tsx}";
+@source "./lib/**/*.{ts,tsx}";
+@source "./services/**/*.{ts,tsx}";
+@source "./App.tsx";
+@source "./index.tsx";
+
+@theme {
+  /* Semantic Color Utilities */
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-surface: var(--surface);
+  --color-surface-foreground: var(--surface-foreground);
+
+  /* Custom Colors */
+  --color-tech-orange: #ff4d00;
+  --color-tech-blue: #0033ff;
+
+  /* Border Radius */
+  --radius: 0px;
+
+  /* Shadow Utilities */
+  --shadow-sharp: 4px 4px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-sharp-sm: 2px 2px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-sharp-hover: 6px 6px 0px 0px rgba(0, 0, 0, 1);
+  --shadow-sharp-dark: 4px 4px 0px 0px rgba(255, 255, 255, 0.2);
+  --shadow-brutal: 8px 8px 0px 0px #000000;
+
+  /* Font Families */
+  --font-sans: "Inter", sans-serif;
+  --font-mono: "JetBrains Mono", monospace;
+  --font-signature: "Dancing Script", cursive;
+
+  /* Header Height Variable */
+  --header-height: 64px;
+}
+
+/* Custom Utilities for Complex Classes */
+@utility collapsible-arrow-border {
+  border-color: currentColor;
+  border-width: 0;
+  border-left-width: 2px;
+  border-left-color: currentColor;
+  border-style: solid;
+}
+
+@layer base {
+  :root {
+    /* PREMIUM LIGHT THEME - Scarlett/Orange Red */
+    --radius: 0px;
+
+    /* Clean, slightly warm off-white background */
+    --background: oklch(0.985 0.002 240);
+    --foreground: oklch(0.15 0.02 240);
+
+    /* Pure white cards with subtle distinction */
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.15 0.02 240);
+
+    --popover: oklch(1 0 0);
+    --popover-foreground: oklch(0.15 0.02 240);
+
+    /* Vibrant Scarlett Red */
+    --primary: oklch(0.55 0.22 27);
+    --primary-foreground: oklch(1 0 0);
+
+    /* Subtle warm gray secondary */
+    --secondary: oklch(0.96 0.01 240);
+    --secondary-foreground: oklch(0.15 0.02 240);
+
+    --muted: oklch(0.96 0.01 240);
+    --muted-foreground: oklch(0.55 0.02 240);
+
+    /* Soft red accent */
+    --accent: oklch(0.97 0.05 27);
+    --accent-foreground: oklch(0.55 0.22 27);
+
+    --destructive: oklch(0.62 0.18 29);
+    --destructive-foreground: oklch(1 0 0);
+
+    --border: oklch(0.92 0.01 240);
+    --input: oklch(0.92 0.01 240);
+    --ring: oklch(0.55 0.22 27);
+
+    --surface: oklch(1 0 0);
+    --surface-foreground: oklch(0.15 0.02 240);
+  }
+
+  .dark {
+    /* PREMIUM DARK THEME - Luminous Orange-Red */
+
+    /* Deep void background, not pitch black */
+    --background: oklch(0.12 0.02 270);
+    --foreground: oklch(0.92 0.01 270);
+
+    /* Rich dark gray cards */
+    --card: oklch(0.16 0.03 270);
+    --card-foreground: oklch(0.92 0.01 270);
+
+    --popover: oklch(0.16 0.03 270);
+    --popover-foreground: oklch(0.92 0.01 270);
+
+    /* Luminous Orange-Red for dark mode */
+    --primary: oklch(0.65 0.22 30);
+    --primary-foreground: oklch(0.12 0.02 270);
+
+    --secondary: oklch(0.22 0.01 270);
+    --secondary-foreground: oklch(0.92 0.01 270);
+
+    --muted: oklch(0.22 0.01 270);
+    --muted-foreground: oklch(0.7 0.01 270);
+
+    --accent: oklch(0.22 0.01 270);
+    --accent-foreground: oklch(0.92 0.01 270);
+
+    --destructive: oklch(0.45 0.12 30);
+    --destructive-foreground: oklch(0.98 0.01 270);
+
+    --border: oklch(0.26 0.02 270);
+    --input: oklch(0.26 0.02 270);
+    --ring: oklch(0.65 0.22 30);
+
+    --surface: oklch(0.16 0.03 270);
+    --surface-foreground: oklch(0.92 0.01 270);
+  }
+
+  body {
+    @apply bg-background text-foreground antialiased;
+  }
+}
+
+/* --- TIPTAP PROSEMIRROR STYLES --- */
+.ProseMirror {
+  outline: none;
+  min-height: 100%;
+  padding-bottom: 200px;
+}
+.ProseMirror p.is-editor-empty:first-child::before {
+  color: #adb5bd;
+  content: attr(data-placeholder);
+  float: left;
+  height: 0;
+  pointer-events: none;
+}
+.ProseMirror h1 {
+  font-size: 2.2em;
+  font-weight: 800;
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+  line-height: 1.1;
+}
+.ProseMirror h2 {
+  font-size: 1.8em;
+  font-weight: 700;
+  margin-top: 0.8em;
+  margin-bottom: 0.4em;
+  line-height: 1.1;
+}
+.ProseMirror ul,
+.ProseMirror ol {
+  padding: 0 1rem;
+  margin: 0.5rem 0;
+}
+.ProseMirror ul {
+  list-style-type: disc;
+}
+.ProseMirror ol {
+  list-style-type: decimal;
+}
+.ProseMirror blockquote {
+  border-left: 3px solid rgba(0, 0, 0, 0.1);
+  padding-left: 1rem;
+  font-style: italic;
+}
+.dark .ProseMirror blockquote {
+  border-left: 3px solid rgba(255, 255, 255, 0.1);
+}
+
+/* Table Styles */
+.ProseMirror table {
+  border-collapse: collapse;
+  table-layout: fixed;
+  width: 100%;
+  margin: 0;
+  overflow: hidden;
+}
+.ProseMirror td,
+.ProseMirror th {
+  min-width: 1em;
+  border: 2px solid #ced4da;
+  padding: 3px 5px;
+  vertical-align: top;
+  box-sizing: border-box;
+  position: relative;
+}
+.ProseMirror th {
+  font-weight: bold;
+  text-align: left;
+  background-color: #f1f3f5;
+}
+.ProseMirror .selectedCell:after {
+  z-index: 2;
+  position: absolute;
+  content: "";
+  left: 0;
+  right: 0;
+  top: 0;
+  bottom: 0;
+  background: rgba(200, 200, 255, 0.4);
+  pointer-events: none;
+}
+
+/* Task List Styles */
+ul[data-type="taskList"] {
+  list-style: none;
+  padding: 0;
+}
+ul[data-type="taskList"] li {
+  display: flex;
+  align-items: center;
+}
+ul[data-type="taskList"] li > label {
+  flex: 0 0 auto;
+  margin-right: 0.5rem;
+  user-select: none;
+}
+ul[data-type="taskList"] li > div {
+  flex: 1 1 auto;
+}
+
+/* Node View Selection Wrapper */
+.react-renderer {
+  margin: 1rem 0;
+}
+.ProseMirror-selectednode .react-renderer {
+  outline: 2px solid hsl(var(--primary));
+  outline-offset: 2px;
+}
+
+/* GLOSSARY TOOLTIP */
+.glossary-term {
+  position: relative;
+  text-decoration: underline;
+  text-decoration-style: dashed;
+  text-decoration-color: hsl(var(--primary));
+  cursor: help;
+  transition: all 0.2s;
+  border-radius: 2px;
+  padding: 0 2px;
+}
+.glossary-term:hover {
+  background-color: hsl(var(--primary));
+  color: white;
+  text-decoration: none;
+}
+
+/* Tooltip Bubble */
+.glossary-term::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%) translateY(-8px);
+  background: black;
+  color: white;
+  padding: 8px 12px;
+  border-radius: 0px;
+  font-size: 11px;
+  font-weight: 500;
+  white-space: normal;
+  min-width: 200px;
+  max-width: 300px;
+  box-shadow: 4px 4px 0px 0px rgba(0, 0, 0, 0.2);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 0.2s,
+    transform 0.2s;
+  z-index: 1000;
+  pointer-events: none;
+  line-height: 1.4;
+}
+.glossary-term:hover::after {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(-12px);
+}
+
+/* Technical Grid Background */
+.bg-grid-pattern {
+  background-size: 40px 40px;
+  background-image:
+    linear-gradient(to right, rgba(0, 0, 0, 0.08) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(0, 0, 0, 0.08) 1px, transparent 1px);
+}
+.dark .bg-grid-pattern {
+  background-image:
+    linear-gradient(to right, rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+}
+
+/* Safety Hazard Fill for Margins (The "Outside" Pattern) */
+.bg-hatch-pattern {
+  background-color: rgba(255, 77, 0, 0.05); /* Very light orange tint */
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 77, 0, 0.1) 0,
+    rgba(255, 77, 0, 0.1) 1px,
+    transparent 0,
+    transparent 10px
+  );
+}
+.dark .bg-hatch-pattern {
+  background-color: rgba(255, 255, 255, 0.02);
+  background-image: repeating-linear-gradient(
+    -45deg,
+    rgba(255, 255, 255, 0.05) 0,
+    rgba(255, 255, 255, 0.05) 1px,
+    transparent 0,
+    transparent 10px
+  );
+}
