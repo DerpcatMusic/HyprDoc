@@ -735,7 +735,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col bg-muted/10 relative z-0 h-full overflow-hidden">
+    <div className="flex-1 flex flex-col bg-background relative z-0 h-full overflow-hidden">
       {/* Header */}
       <div className="h-14 flex-shrink-0 bg-background border-b-2 border-black dark:border-white flex items-center justify-between px-4 z-30">
         <div className="flex items-center gap-6">
@@ -863,7 +863,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
 
       {/* Tiptap Canvas */}
       <div
-        className="flex-1 flex flex-col overflow-hidden relative bg-grid-pattern cursor-text"
+        className="flex-1 flex flex-col overflow-hidden relative bg-background bg-grid-pattern cursor-text"
         onClick={() => editor?.chain().focus().run()}
       >
         {/* FIXED TOOLBAR */}
