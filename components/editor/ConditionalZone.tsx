@@ -1,12 +1,27 @@
 
 import React, { useState, useMemo } from 'react';
-import { DocBlock, FormValues, BlockType, EditorBlockProps } from '../../types';
+import { DocBlock, FormValues, BlockType } from '../../types';
 import { Trash2, Split, CheckCircle2, XCircle, Plus, ChevronDown } from 'lucide-react';
 import { cn, Button } from '../ui-components';
 import { EditorBlock } from '../EditorBlock';
 import { useDocument } from '../../context/DocumentContext';
 
-export const ConditionalZone: React.FC<EditorBlockProps> = ({
+interface ConditionalZoneProps {
+    block: DocBlock;
+    formValues: FormValues;
+    allBlocks?: DocBlock[];
+    isSelected: boolean;
+    onUpdate: (id: string, updates: Partial<DocBlock>) => void;
+    onDelete: (id: string) => void;
+    onSelect: (id: string) => void;
+    onDrop: (e: React.DragEvent, targetId: string, position: 'inside' | 'inside-false' | 'before' | 'after') => void;
+    parties: any[];
+    onDragStart: (e: React.DragEvent, id: string) => void;
+    onDragEnd?: (e: React.DragEvent) => void;
+    index?: number;
+}
+
+export const ConditionalZone: React.FC<ConditionalZoneProps> = ({
     block,
     allBlocks = [],
     isSelected,
@@ -51,7 +66,7 @@ export const ConditionalZone: React.FC<EditorBlockProps> = ({
         else onDrop(e, block.id, 'inside-false');
     };
 
-    const safeUpdateCondition = (key: string, value: string | number | boolean) => {
+    const safeUpdateCondition = (key: string, value: any) => {
         const currentCondition = block.condition || { variableName: '', operator: 'equals', value: '' };
         onUpdate(block.id, { condition: { ...currentCondition, [key]: value } });
     };
@@ -154,7 +169,7 @@ export const ConditionalZone: React.FC<EditorBlockProps> = ({
                     onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                     onDrop={handleDropFalse}
                 >
-                    <div className="absolute top-0 right-0 p-1"><button onClick={() => onUpdate(block.id, {})} className="text-red-300 hover:text-red-600"><Trash2 size={12}/></button></div>
+                    <div className="absolute top-0 right-0 p-1"><button onClick={() => onUpdate(block.id, { elseChildren: undefined })} className="text-red-300 hover:text-red-600"><Trash2 size={12}/></button></div>
                     <div className="absolute top-2 left-2 text-[9px] font-bold uppercase tracking-widest text-red-600/50 dark:text-red-400/50 font-mono select-none">OTHERWISE SHOW THIS:</div>
                     {(!block.elseChildren || block.elseChildren.length === 0) && <div className="border-2 border-dashed border-red-500/20 h-20 flex items-center justify-center text-red-600/40 text-xs font-mono uppercase tracking-wider">Drop Fallback Content Here</div>}
                     <div className="space-y-4 mt-4">

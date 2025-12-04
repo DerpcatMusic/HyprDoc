@@ -1,16 +1,16 @@
 
 import React from 'react';
-import { DocumentSettings, Integration, Party, GlobalPaymentSettings } from '../../types';
+import { DocumentSettings, Integration, Party } from '../../types';
 import { Card, Label, Input, Button, Switch, FontPicker, ColorPicker, Tabs, TabsList, TabsTrigger, TabsContent, Badge } from '../ui-components';
 import { CreditCard, Webhook, Database, Link as LinkIcon, CheckCircle2, ArrowUp, ArrowDown, Users, Shuffle, AlignLeft, AlignRight, Landmark, QrCode, LayoutTemplate, Key } from 'lucide-react';
 import { useDocument } from '../../context/DocumentContext';
 import { cn } from '../ui-components';
 
 interface SettingsViewProps {
-    settings?: DocumentSettings | undefined;
+    settings?: DocumentSettings;
     onUpdate: (settings: DocumentSettings) => void;
-    parties?: Party[] | undefined;
-    onUpdateParties?: ((parties: Party[]) => void) | undefined;
+    parties?: Party[];
+    onUpdateParties?: (parties: Party[]) => void;
     mode: 'global' | 'document';
     isModal?: boolean;
 }
@@ -18,13 +18,13 @@ interface SettingsViewProps {
 export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, parties, onUpdateParties, mode, isModal }) => {
     const { doc, setDoc } = useDocument();
 
-    const handleChange = (key: keyof DocumentSettings, value: DocumentSettings[keyof DocumentSettings]) => {
+    const handleChange = (key: keyof DocumentSettings, value: any) => {
         onUpdate({ ...settings, [key]: value });
     };
 
     const handleGatewayChange = (provider: string, key: string, value: string) => {
-        const gateways: GlobalPaymentSettings = settings?.paymentGateways || {};
-        const providerSettings = gateways[provider as keyof GlobalPaymentSettings] || {};
+        const gateways: any = settings?.paymentGateways || {};
+        const providerSettings = gateways[provider] || {};
         handleChange('paymentGateways', {
             ...gateways,
             [provider]: { ...providerSettings, [key]: value }
@@ -40,13 +40,9 @@ export const SettingsView: React.FC<SettingsViewProps> = ({ settings, onUpdate, 
         if (!parties || !onUpdateParties) return;
         const newParties = [...parties];
         if (direction === 'up' && index > 0) {
-            const temp = newParties[index]!;
-            newParties[index] = newParties[index - 1]!;
-            newParties[index - 1] = temp;
+            [newParties[index], newParties[index - 1]] = [newParties[index - 1], newParties[index]];
         } else if (direction === 'down' && index < newParties.length - 1) {
-            const temp = newParties[index]!;
-            newParties[index] = newParties[index + 1]!;
-            newParties[index + 1] = temp;
+            [newParties[index], newParties[index + 1]] = [newParties[index + 1], newParties[index]];
         }
         onUpdateParties(newParties);
     };

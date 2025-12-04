@@ -1,35 +1,42 @@
-'use client'
 
-import { useUser } from '@clerk/nextjs'
-import { createContext, useContext, ReactNode } from 'react'
+import React, { createContext, useContext } from 'react';
+import { useUser, useClerk } from '@clerk/clerk-react';
 
-/**
- * Auth Hook using Clerk
- * 
- * This replaces the old Supabase AuthContext.
- * Use Clerk's useUser() and useAuth() hooks directly in components.
- */
+// Adapter to maintain compatibility with existing app structure
+// while using Clerk under the hood.
 
 interface AuthContextType {
-  user: any | null
-  isLoaded: boolean
-  isSignedIn: boolean
+    user: any | null; // Using any for compatibility with Clerk User Resource
+    loading: boolean;
+    signOut: () => Promise<void>;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined)
+const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-export function useAuth() {
-  const { user, isLoaded, isSignedIn } = useUser()
-  
-  return {
-    user,
-    isLoaded,
-    isSignedIn,
-    // Legacy compatibility
-    session: isSignedIn ? { user } : null,
-    loading: !isLoaded,
-  }
-}
+export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+    const { user, isLoaded } = useUser();
+    const { signOut } = useClerk();
 
-// Note: AuthProvider is no longer needed - Clerk handles this via ClerkProvider
-// This file is kept for backward compatibility during migration
+    return (
+        <AuthContext.Provider value={{ 
+            user: user || null, 
+            loading: !isLoaded, 
+            signOut: async () => { await signOut(); }
+        }}>
+            {children}
+        </AuthContext.Provider>
+    );
+};
+
+export const useAuth = () => {
+    const { user, isLoaded } = useUser();
+    const { signOut } = useClerk();
+    
+    // Mimic the original hook's return signature for minimal refactoring
+    return {
+        user: user || null,
+        session: null, // Clerk manages sessions internally
+        loading: !isLoaded,
+        signOut: async () => { await signOut(); }
+    };
+};

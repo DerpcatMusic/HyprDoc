@@ -1,4 +1,4 @@
-import type { DocBlock } from '../types/block';
+import { DocBlock } from '../types';
 
 /**
  * Deep clone utility - Modernized for performance

@@ -41,6 +41,64 @@ export const Switch = ({ checked, onCheckedChange, className, ...props }: { chec
     </button>
 );
 
+// --- Toggle ---
+export const Toggle = React.forwardRef<HTMLButtonElement, React.ButtonHTMLAttributes<HTMLButtonElement> & { pressed?: boolean }>(
+  ({ className, pressed, ...props }, ref) => (
+    <button
+      ref={ref}
+      aria-pressed={pressed}
+      className={cn(
+        "inline-flex items-center justify-center rounded-none text-sm font-medium transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 h-8 w-8 p-0",
+        pressed ? "bg-black text-white hover:bg-black/90 dark:bg-white dark:text-black dark:hover:bg-white/90" : "bg-transparent",
+        className
+      )}
+      {...props}
+    />
+  )
+);
+Toggle.displayName = "Toggle";
+
+// --- Popover ---
+export const Popover = ({ trigger, content, open, onOpenChange }: { trigger: React.ReactNode, content: React.ReactNode, open: boolean, onOpenChange: (o: boolean) => void }) => {
+    const ref = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handleClickOutside = (event: MouseEvent) => {
+            if (ref.current && !ref.current.contains(event.target as Node)) {
+                onOpenChange(false);
+            }
+        };
+        if (open) document.addEventListener('mousedown', handleClickOutside);
+        return () => document.removeEventListener('mousedown', handleClickOutside);
+    }, [open, onOpenChange]);
+
+    return (
+        <div className="relative inline-block" ref={ref}>
+            <div onClick={() => onOpenChange(!open)}>{trigger}</div>
+            {open && (
+                <div className="absolute top-full left-0 z-50 mt-2 w-max bg-white dark:bg-black border-2 border-black dark:border-white shadow-sharp p-2 animate-in fade-in zoom-in-95" onClick={(e) => e.stopPropagation()}>
+                    {content}
+                </div>
+            )}
+        </div>
+    );
+};
+
+export const getContrastColor = (hexcolor: string) => {
+    // If invalid hex, default to black
+    if (!hexcolor || hexcolor.length < 4) return '#000000';
+    
+    // Normalize hex
+    const hex = hexcolor.replace('#', '');
+    const r = parseInt(hex.length === 3 ? hex[0] + hex[0] : hex.substring(0, 2), 16);
+    const g = parseInt(hex.length === 3 ? hex[1] + hex[1] : hex.substring(2, 4), 16);
+    const b = parseInt(hex.length === 3 ? hex[2] + hex[2] : hex.substring(4, 6), 16);
+    
+    const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+    return (yiq >= 128) ? '#000000' : '#ffffff';
+};
+
+
 export const ColorPicker = ({ value, onChange, className }: { value: string, onChange: (val: string) => void, className?: string }) => {
     return (
         <div className={cn("flex items-center gap-2", className)}>

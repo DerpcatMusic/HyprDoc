@@ -1,5 +1,6 @@
 
-import type { Term } from "../types/block";
+
+import { Term } from "../types";
 
 export const STANDARD_LEGAL_TERMS: Term[] = [
     {
@@ -115,3 +116,67 @@ export const LEGAL_DICTIONARY_DB: DictionaryTerm[] = [
     { category: "Manufacturing", term: "Supply Chain", definition: "The sequence of processes involved in the production and distribution of a commodity." },
     { category: "Manufacturing", term: "OEM", definition: "Original Equipment Manufacturer. A company that produces parts and equipment that may be marketed by another manufacturer." }
 ];
+
+export const highlightGlossaryTerms = (html: string, docTerms: Term[]): string => {
+    if (!html) return '';
+
+    // Merge doc terms with system dictionary
+    const termMap = new Map<string, string>(); // term -> definition
+
+    // 1. Add System Terms
+    LEGAL_DICTIONARY_DB.forEach(t => {
+        termMap.set(t.term.toLowerCase(), t.definition);
+    });
+
+    // 2. Add/Override with Doc Terms
+    docTerms.forEach(t => {
+        termMap.set(t.term.toLowerCase(), t.definition);
+    });
+
+    // Create array and sort by length desc to match "Intellectual Property" before "Property"
+    const sortedTerms = Array.from(termMap.keys()).sort((a, b) => b.length - a.length);
+
+    // Escape regex function
+    const escapeRegExp = (string: string) => string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    // Split by HTML tags to preserve them
+    const parts = html.split(/(<[^>]+>)/g);
+    
+    const newParts = parts.map(part => {
+        // If it's a tag, return it as is
+        if (part.startsWith('<')) return part;
+        
+        let text = part;
+        const replacements: {placeholder: string, html: string}[] = [];
+        
+        sortedTerms.forEach((termKey, idx) => {
+            // Optimization: check existence first
+            if (!text.toLowerCase().includes(termKey)) return;
+
+            const definition = termMap.get(termKey);
+            // Match whole word, case insensitive
+            const regex = new RegExp(`\\b(${escapeRegExp(termKey)})\\b`, 'gi');
+            
+            // Temporary placeholder to avoid recursive replacement
+            const placeholder = `__GLOSSARY_${idx}__`;
+            
+            // Replace and store
+            text = text.replace(regex, (match) => {
+                replacements.push({
+                    placeholder,
+                    html: `<span class="glossary-term" data-tooltip="${definition}" data-term="${match}">${match}</span>`
+                });
+                return placeholder;
+            });
+        });
+
+        // Restore placeholders
+        replacements.forEach(rep => {
+            text = text.split(rep.placeholder).join(rep.html);
+        });
+        
+        return text;
+    });
+    
+    return newParts.join('');
+};

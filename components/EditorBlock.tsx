@@ -33,7 +33,6 @@ const SelectedHeader = ({ label, onDelete }: { label: string, onDelete: () => vo
 const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onUpdate, onDelete, onSelect, isSelected } = props;
     const { ungroupBlock } = useDocument();
-    const { handleDragStartInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
     
     const childCount = block.children?.length || 0;
 
@@ -54,14 +53,12 @@ const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
         <div 
              className={cn("w-full relative mb-6 group border-2 border-transparent transition-all", isSelected ? "border-primary/50 bg-primary/5 p-2 rounded-sm" : "hover:border-black/10 p-2")}
              onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable 
-             onDragStart={handleDragStartInternal} 
-             onDragEnd={props.onDragEnd} 
-             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }} // Prevent drop on container itself
         >
-            {/* Columns Header */}
-            <div className="flex items-center justify-between mb-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                <div className="flex items-center gap-2 cursor-grab active:cursor-grabbing" onMouseDown={(e) => e.stopPropagation()}>
+            <div 
+                className="flex items-center justify-between mb-2 opacity-0 group-hover:opacity-100 transition-opacity cursor-grab active:cursor-grabbing" 
+                {...{'data-drag-handle': ''}}
+            >
+                <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
                     <span className="bg-black text-white text-[9px] font-bold uppercase px-1.5 py-0.5 flex items-center gap-1">
                         <ColumnsIcon size={10} /> Columns
                     </span>
@@ -80,7 +77,7 @@ const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
 
             <div className="flex w-full gap-4">
                 {block.children?.map((col, i) => (
-                    <EditorBlock key={col.id} {...props} block={col} index={i} isSelected={false} />
+                    <EditorBlock key={col.id} {...props} block={col} index={i} isSelected={false} isTiptap={true} />
                 ))}
             </div>
         </div>
@@ -89,18 +86,9 @@ const ColumnsEditor: React.FC<EditorBlockProps> = (props) => {
 
 const ColumnDropZone: React.FC<EditorBlockProps> = (props) => {
     const { block } = props;
-    const { dropPosition, elementRef, handleDropInternal, handleDragOver, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
-
     return (
         <div 
-            ref={elementRef} 
-            className={cn(
-                "flex-1 flex flex-col gap-3 relative min-h-[100px] p-2 border border-dashed border-black/10 bg-white dark:bg-black/20 transition-colors",
-                dropPosition === 'inside' ? "bg-primary/5 border-primary" : ""
-            )}
-            onDragOver={handleDragOver} 
-            onDragLeave={handleDragLeave}
-            onDrop={handleDropInternal}
+            className="flex-1 flex flex-col gap-3 relative min-h-[100px] p-2 border border-dashed border-black/10 bg-white dark:bg-black/20 transition-colors"
         >
              {(!block.children?.length) && (
                  <div className="flex flex-col items-center justify-center h-full text-muted-foreground opacity-50 pointer-events-none">
@@ -109,27 +97,21 @@ const ColumnDropZone: React.FC<EditorBlockProps> = (props) => {
                  </div>
              )}
              {block.children?.map((child, i) => (
-                 <EditorBlock key={child.id} {...props} block={child} index={i} isSelected={false} />
+                 <EditorBlock key={child.id} {...props} block={child} index={i} isSelected={false} isTiptap={true} />
              ))}
-             {dropPosition === 'inside' && (
-                 <div className="absolute inset-0 border-2 border-primary bg-primary/5 pointer-events-none z-50 flex items-center justify-center">
-                     <span className="text-[10px] font-bold text-primary bg-white px-2 py-1">Drop Here</span>
-                 </div>
-             )}
         </div>
     );
 };
 
 const SpacerEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     return (
-        <div ref={elementRef} 
+        <div 
              onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={handleDragOver} onDrop={handleDropInternal}
              className={cn("group relative flex items-center justify-center cursor-ns-resize", isSelected ? "border border-primary border-dashed" : "hover:bg-muted/10")}
              style={{ height: Math.max(10, block.height || 32) }}
+             {...{'data-drag-handle': ''}}
         >
             <div className="absolute left-2 top-1/2 -translate-y-1/2 bg-white border border-black/10 p-1 rounded-sm opacity-0 group-hover:opacity-100 shadow-sm cursor-pointer z-10"
                  onMouseDown={(e) => {
@@ -158,7 +140,6 @@ const SpacerEditor: React.FC<EditorBlockProps> = (props) => {
 
 const AlertEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
     
     const variant = block.variant || 'info';
     const styles = {
@@ -171,25 +152,29 @@ const AlertEditor: React.FC<EditorBlockProps> = (props) => {
     const Icon = icons[variant];
 
     return (
-        <div ref={elementRef} className={cn("relative group mb-3", isSelected && "z-20")}
-             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={handleDragOver} onDrop={handleDropInternal}>
+        <div className={cn("relative group mb-3", isSelected && "z-20")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}>
              
              {isSelected && <SelectedHeader label="ALERT" onDelete={() => onDelete(block.id)} />}
              
-             <div className={cn("p-4 border-l-4 flex gap-3 items-start", styles[variant], isSelected ? "ring-2 ring-primary ring-offset-2" : "")}>
+             {/* The container is the drag handle for alert boxes */}
+             <div 
+                className={cn("p-4 border-l-4 flex gap-3 items-start cursor-grab active:cursor-grabbing", styles[variant], isSelected ? "ring-2 ring-primary ring-offset-2" : "")}
+                {...{'data-drag-handle': ''}}
+             >
                  <Icon size={18} className="mt-0.5 shrink-0" />
                  <div className="flex-1">
                      <textarea 
-                        className="w-full bg-transparent border-none resize-none focus:ring-0 p-0 text-sm font-medium outline-none"
+                        className="w-full bg-transparent border-none resize-none focus:ring-0 p-0 text-sm font-medium outline-none cursor-text"
                         value={block.content || ''}
                         onChange={(e) => onUpdate(block.id, { content: e.target.value })}
                         placeholder="Type alert message..."
+                        onMouseDown={(e) => e.stopPropagation()} // Stop drag when clicking text area
                      />
                  </div>
                  <div className="flex flex-col gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                      {['info', 'warning', 'error', 'success'].map(v => (
-                         <button key={v} onClick={() => onUpdate(block.id, { variant: v as any })} className={cn("w-3 h-3 rounded-full border", v===variant ? "border-black scale-125" : "border-transparent opacity-50")} style={{ backgroundColor: v==='info'?'blue':v==='warning'?'orange':v==='error'?'red':'green' }} />
+                         <button key={v} onClick={(e) => { e.stopPropagation(); onUpdate(block.id, { variant: v as any }); }} className={cn("w-3 h-3 rounded-full border", v===variant ? "border-black scale-125" : "border-transparent opacity-50")} style={{ backgroundColor: v==='info'?'blue':v==='warning'?'orange':v==='error'?'red':'green' }} />
                      ))}
                  </div>
              </div>
@@ -199,15 +184,16 @@ const AlertEditor: React.FC<EditorBlockProps> = (props) => {
 
 const QuoteEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected } = props;
-    const { elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     return (
-        <div ref={elementRef} className={cn("relative group mb-3 pl-4 border-l-4 border-black/20 dark:border-white/20", isSelected && "border-primary")}
-             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={handleDragOver} onDrop={handleDropInternal}>
+        <div className={cn("relative group mb-3 pl-4 border-l-4 border-black/20 dark:border-white/20", isSelected && "border-primary")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}>
              
              <div className="relative">
-                 <Quote size={24} className="absolute -top-2 -left-2 text-muted-foreground/20 -z-10 transform -scale-x-100" />
+                 {/* Icon is drag handle */}
+                 <div className="absolute -top-2 -left-2 text-muted-foreground/20 -z-10 transform -scale-x-100 cursor-grab active:cursor-grabbing" {...{'data-drag-handle': ''}}>
+                     <Quote size={24} />
+                 </div>
                  <textarea 
                     className="w-full bg-transparent border-none resize-none focus:ring-0 p-0 text-xl font-serif italic text-muted-foreground outline-none min-h-[60px]"
                     value={block.content || ''}
@@ -227,30 +213,27 @@ const QuoteEditor: React.FC<EditorBlockProps> = (props) => {
 
 const RepeaterEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, isSelected } = props;
-    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal, handleDragLeave } = useBlockDrag(block, props.onDragStart, props.onDrop);
-
     return (
-        <div ref={elementRef} className={cn("relative mb-6 border-2 bg-white dark:bg-black p-4", isSelected ? "border-primary shadow-lg" : "border-black border-dashed")}
-             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} 
-             onDragOver={handleDragOver} 
-             onDragLeave={handleDragLeave}
-             onDrop={handleDropInternal}>
-              <div className="flex items-center gap-2 mb-2 font-mono text-xs font-bold uppercase border-b pb-2"><Repeat size={14}/> {block.label || "Repeating Group"}</div>
+        <div className={cn("relative mb-6 border-2 bg-white dark:bg-black p-4", isSelected ? "border-primary shadow-lg" : "border-black border-dashed")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}>
+              <div 
+                className="flex items-center gap-2 mb-2 font-mono text-xs font-bold uppercase border-b pb-2 cursor-grab active:cursor-grabbing"
+                {...{'data-drag-handle': ''}}
+              >
+                  <Repeat size={14}/> {block.label || "Repeating Group"}
+              </div>
               <div className="min-h-[60px] space-y-4">
                    {(!block.children?.length) && <div className="text-center text-[10px] text-muted-foreground uppercase py-4">Drop content here</div>}
                    {block.children?.map((child, i) => (
-                       <EditorBlock key={child.id} {...props} block={child} index={i} isSelected={false} />
+                       <EditorBlock key={child.id} {...props} block={child} index={i} isSelected={false} isTiptap={true} />
                    ))}
               </div>
-              {dropPosition === 'inside' && <div className="absolute inset-0 bg-primary/10 border-2 border-primary pointer-events-none" />}
         </div>
     );
 };
 
 const StandardEditor: React.FC<EditorBlockProps> = (props) => {
     const { block, onSelect, onUpdate, onDelete, isSelected, parties } = props;
-    const { dropPosition, elementRef, handleDragStartInternal, handleDragOver, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
 
     const Icon = BLOCK_META.find(b => b.type === block.type)?.icon || FileText;
     const isLayoutBlock = [BlockType.SECTION_BREAK, BlockType.SPACER, BlockType.ALERT, BlockType.QUOTE, BlockType.HTML].includes(block.type);
@@ -260,11 +243,7 @@ const StandardEditor: React.FC<EditorBlockProps> = (props) => {
         e.stopPropagation();
         const currentIndex = parties.findIndex(p => p.id === block.assignedToPartyId);
         const nextParty = currentIndex === -1 ? parties[0] : parties[currentIndex + 1];
-        if (nextParty?.id) {
-            onUpdate(block.id, { assignedToPartyId: nextParty.id });
-        } else {
-            onUpdate(block.id, {});
-        }
+        onUpdate(block.id, { assignedToPartyId: nextParty?.id });
     };
 
     const handleRequiredToggle = (e: React.MouseEvent) => {
@@ -273,10 +252,8 @@ const StandardEditor: React.FC<EditorBlockProps> = (props) => {
     };
 
     return (
-        <div ref={elementRef} className={cn("relative group mb-3 transition-all", isSelected && "z-20 scale-[1.01]")}
-             onDragOver={handleDragOver} onDrop={handleDropInternal} onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}>
-            
-            <DropIndicator position={dropPosition} />
+        <div className={cn("relative group mb-3 transition-all", isSelected && "z-20 scale-[1.01]")}
+             onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}>
             
             {isSelected && <SelectedHeader label={block.type} onDelete={() => onDelete(block.id)} />}
 
@@ -285,16 +262,18 @@ const StandardEditor: React.FC<EditorBlockProps> = (props) => {
                     <div className="absolute top-0 bottom-0 left-0 w-1 z-10" style={{ backgroundColor: assignedParty.color }} />
                 )}
 
-                <div className="flex items-center justify-between px-3 py-2 bg-muted/5 border-b border-black/5 cursor-grab active:cursor-grabbing select-none"
-                    draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd}>
+                {/* Header acts as drag handle */}
+                <div 
+                    className="flex items-center justify-between px-3 py-2 bg-muted/5 border-b border-black/5 select-none cursor-grab active:cursor-grabbing"
+                    {...{'data-drag-handle': ''}}
+                >
                     <div className="flex items-center gap-3 pl-1">
-                        <GripVertical size={12} className="text-muted-foreground/30" />
                         <Icon size={14} className="text-muted-foreground" />
                         <span className="text-[10px] font-mono font-bold uppercase tracking-wider text-muted-foreground">{block.label || block.type}</span>
                     </div>
                     
                     {!isLayoutBlock && (
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-2" onMouseDown={(e) => e.stopPropagation()}>
                         <button onClick={handlePartyToggle} className={cn("h-5 px-2 text-[9px] font-bold uppercase border flex items-center gap-1 transition-all", assignedParty ? "bg-white border-transparent shadow-sm" : "bg-transparent border-transparent text-muted-foreground/50 hover:bg-muted")} title={assignedParty ? `Assigned to ${assignedParty.name}` : "Click to assign party"}>
                             {assignedParty ? <><div className="w-2 h-2 rounded-full" style={{ backgroundColor: assignedParty.color }} />{assignedParty.initials}</> : <div className="flex items-center gap-1"><User size={10} /> Assign</div>}
                         </button>
@@ -397,11 +376,14 @@ const StandardEditor: React.FC<EditorBlockProps> = (props) => {
     );
 };
 
+interface ExtendedEditorBlockProps extends EditorBlockProps {
+    isTiptap?: boolean;
+}
+
 // --- Main Component ---
-
-export const EditorBlock: React.FC<EditorBlockProps> = (props) => {
+export const EditorBlock: React.FC<ExtendedEditorBlockProps> = (props) => {
     const { block } = props;
-
+    
     switch (block.type) {
         case BlockType.COLUMNS: return <ColumnsEditor {...props} />;
         case BlockType.COLUMN: return <ColumnDropZone {...props} />;

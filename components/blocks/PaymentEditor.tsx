@@ -7,9 +7,9 @@ import { useBlockDrag } from '../../hooks/useBlockDrag';
 import { useDocument } from '../../context/DocumentContext';
 
 export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
-    const { block, onUpdate, onDelete, onSelect, isSelected, docSettings } = props;
+    const { block, onUpdate, onDelete, onSelect, isSelected, docSettings, isTiptap } = props;
     const { doc, setMode } = useDocument();
-    const { elementRef, handleDragStartInternal, handleDropInternal } = useBlockDrag(block, props.onDragStart, props.onDrop);
+    const dragProps = useBlockDrag(block, props.onDragStart, props.onDrop);
     
     // Default safe values
     const settings = block.paymentSettings || { 
@@ -18,7 +18,7 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
 
     const enabledProviders = settings.enabledProviders || [];
 
-    const handleSettingChange = (key: string, value: string | number | boolean) => {
+    const handleSettingChange = (key: string, value: any) => {
         onUpdate(block.id, { 
             paymentSettings: { ...settings, [key]: value } 
         });
@@ -38,7 +38,7 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
     
     // Check global configuration status
     const isConfigured = (provider: string) => {
-        const gateways = docSettings?.paymentGateways as Record<string, any> | undefined;
+        const gateways = docSettings?.paymentGateways as any;
         if (!gateways) return false;
         const config = gateways[provider];
         if (!config) return false;
@@ -72,15 +72,28 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
         </div>
     )
 
+    const containerProps = isTiptap ? {} : {
+        draggable: true,
+        onDragStart: dragProps.handleDragStartInternal,
+        onDragEnd: props.onDragEnd,
+        onDragOver: (e: React.DragEvent) => e.preventDefault(),
+        onDrop: dragProps.handleDropInternal
+    };
+
     return (
-        <div ref={elementRef}
+        <div ref={dragProps.elementRef}
              className={cn("relative group mb-3 border-2 transition-all p-4 bg-white dark:bg-black/20", isSelected ? "border-primary z-20" : "border-black/10 hover:border-black/30")}
              onClick={(e) => { e.stopPropagation(); onSelect(block.id); }}
-             draggable onDragStart={handleDragStartInternal} onDragEnd={props.onDragEnd} onDragOver={(e) => e.preventDefault()} onDrop={handleDropInternal}>
+             {...containerProps}
+        >
              
              {isSelected && <SelectedHeader label="PAYMENT" onDelete={() => onDelete(block.id)} />}
 
-             <div className="flex items-center gap-2 mb-4 text-xs font-bold font-mono uppercase tracking-widest text-muted-foreground border-b pb-2">
+             {/* Header acts as drag handle in Tiptap */}
+             <div 
+                className={cn("flex items-center gap-2 mb-4 text-xs font-bold font-mono uppercase tracking-widest text-muted-foreground border-b pb-2 select-none", isTiptap ? "cursor-grab active:cursor-grabbing" : "")}
+                {...(isTiptap ? { 'data-drag-handle': '' } : {})}
+             >
                  <CreditCard size={14} /> Payment Gateway
              </div>
 
@@ -164,9 +177,9 @@ export const PaymentEditor: React.FC<EditorBlockProps> = (props) => {
                  <div className="pt-2">
                      <Label className="mb-2 block flex items-center justify-between">
                          <span>Enabled Providers</span>
-                         <button onClick={() => setMode('settings')} className="text-primary text-[9px] hover:underline flex items-center gap-1">
+                         <div className="text-primary text-[9px] flex items-center gap-1 cursor-pointer">
                              Configure Keys <ExternalLink size={8} />
-                         </button>
+                         </div>
                      </Label>
                      
                      <div className="space-y-2">

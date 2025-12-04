@@ -1,6 +1,7 @@
+
+
 import React from 'react';
 import { BlockType } from '../types';
-import type { LucideIcon } from 'lucide-react';
 import { 
     Type, AlignLeft, Minus, Image as ImageIcon,
     Settings, List, CheckSquare, Calendar, FileSignature, 
@@ -14,13 +15,7 @@ interface ToolboxProps {
     onAddBlock: (type: BlockType) => void;
 }
 
-const ToolItem = ({ type, icon: Icon, label, onDragStart, onClick }: { 
-    type: BlockType; 
-    icon: LucideIcon; 
-    label: string; 
-    onDragStart: (e: React.DragEvent, type: BlockType) => void; 
-    onClick: (type: BlockType) => void 
-}) => (
+const ToolItem = ({ type, icon: Icon, label, onDragStart, onClick }: { type: BlockType, icon: any, label: string, onDragStart: any, onClick: any }) => (
     <div 
       draggable
       onDragStart={(e) => onDragStart(e, type)}
@@ -44,7 +39,7 @@ const SectionHeader = ({ title, number }: { title: string, number: string }) => 
 
 export const Toolbox: React.FC<ToolboxProps> = ({ onDragStart, onAddBlock }) => {
     return (
-        <div className="flex-1 overflow-y-auto bg-muted/10 dark:bg-zinc-950 scrollbar-hide flex flex-col border-r-2 border-black dark:border-white">
+        <div className="flex-1 overflow-y-auto bg-muted/10 dark:bg-zinc-950 scrollbar-hide flex flex-col border-r-2 border-black dark:border-white w-full h-full">
             
             {/* 1. CONTENT & STRUCTURE */}
             <div>

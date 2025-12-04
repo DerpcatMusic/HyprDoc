@@ -86,13 +86,12 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
     return (
         <div 
             className={cn(
-                "h-full z-40 transition-all duration-300 ease-in-out bg-white dark:bg-black border-l-2 border-black dark:border-white shadow-[-10px_0_20px_-10px_rgba(0,0,0,0.1)] overflow-y-auto overflow-x-hidden flex flex-col",
-                "w-[340px]"
+                "h-full z-10 transition-all duration-300 ease-in-out bg-white dark:bg-black border-l-2 border-black dark:border-white overflow-y-auto overflow-x-hidden flex flex-col w-full"
             )}
         >
             {/* NO BLOCK SELECTED - SHOW GLOBAL VARS */}
             {!block && (
-                <div className="flex flex-col h-full min-w-[340px]">
+                <div className="flex flex-col h-full w-full">
                      <div className="h-14 flex items-center justify-between px-4 border-b-2 border-black dark:border-white bg-white dark:bg-black">
                          <span className="font-bold font-mono text-xs uppercase tracking-widest flex items-center gap-2">
                              <Braces size={14} /> Global Variables
@@ -152,7 +151,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
             )}
 
             {block && (
-                <div className="flex flex-col h-full min-w-[340px]">
+                <div className="flex flex-col h-full w-full">
                      {/* Header */}
                     <div className="h-14 flex items-center justify-between px-4 border-b-2 border-black dark:border-white bg-white dark:bg-black sticky top-0 z-20">
                          <div className="flex items-center gap-2">
@@ -190,13 +189,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
                                         return (
                                             <button
                                                 key={party.id}
-                                                onClick={() => {
-                                                    if (isAssigned) {
-                                                        onUpdate(block.id, {});
-                                                    } else {
-                                                        onUpdate(block.id, { assignedToPartyId: party.id });
-                                                    }
-                                                }}
+                                                onClick={() => onUpdate(block.id, { assignedToPartyId: isAssigned ? undefined : party.id })}
                                                 className={cn(
                                                     "flex items-center justify-between p-2 border-2 transition-all text-xs font-mono font-bold uppercase",
                                                     isAssigned 
@@ -289,6 +282,21 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
                                             value={block.placeholder || ''} 
                                             onChange={(e) => onUpdate(block.id, { placeholder: e.target.value })} 
                                         />
+                                    </div>
+                                )}
+                                
+                                {/* Min Length for Text Inputs */}
+                                {(block.type === BlockType.INPUT || block.type === BlockType.LONG_TEXT) && (
+                                    <div className="space-y-2">
+                                        <Label>Minimum Characters</Label>
+                                        <Input 
+                                            type="number"
+                                            className="font-sans" 
+                                            value={block.minLength || ''} 
+                                            onChange={(e) => onUpdate(block.id, { minLength: parseInt(e.target.value) || undefined })} 
+                                            placeholder="e.g. 5"
+                                        />
+                                        <p className="text-[10px] text-muted-foreground">Field will be incomplete until this length is reached.</p>
                                     </div>
                                 )}
 
@@ -433,7 +441,7 @@ export const PropertiesPanel: React.FC<PropertiesPanelProps> = ({ block, parties
                                                 >
                                                     <option value="" disabled>Select a number field...</option>
                                                     {numericBlocks.map(b => (
-                                                        <option key={b.id} value={b.id}>
+                                                        <option key={b.id} value={b.variableName}>
                                                             {b.label || 'Untitled'} ({b.variableName})
                                                         </option>
                                                     ))}

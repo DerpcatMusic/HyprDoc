@@ -115,7 +115,7 @@ export const Badge = ({ children, className, variant = 'default', ...props }: { 
 }
 
 // --- CHECKBOX ---
-export const Checkbox = React.forwardRef<HTMLButtonElement, { checked?: boolean | undefined; onCheckedChange?: (checked: boolean) => void; disabled?: boolean | undefined; id?: string; className?: string }>(
+export const Checkbox = React.forwardRef<HTMLButtonElement, { checked?: boolean; onCheckedChange?: (checked: boolean) => void; disabled?: boolean; id?: string; className?: string }>(
   ({ className, checked, onCheckedChange, disabled, id, ...props }, ref) => (
     <button
       type="button"

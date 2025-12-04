@@ -1,5 +1,5 @@
 
-import type { DocBlock } from '../types/block';
+import { DocBlock } from '../types';
 
 /**
  * Payment Service
@@ -65,13 +65,13 @@ export const PaymentService = {
 
     calculateAmount: (
         settings: { 
-            amountType?: 'fixed' | 'variable' | 'percent' | undefined; 
-            amount?: number | undefined; 
-            percentage?: number | undefined;
-            variableName?: string | undefined; 
+            amountType?: 'fixed' | 'variable' | 'percent'; 
+            amount?: number; 
+            percentage?: number;
+            variableName?: string; 
         } | undefined, 
-        formValues: Record<string, string | number | boolean | string[] | null | undefined>,
-        globalVariables: Array<{ id: string; key: string; value: string; label?: string }>,
+        formValues: Record<string, any>,
+        globalVariables: any[],
         allBlocks: DocBlock[] = []
     ): number => {
         if (!settings) return 0;
@@ -102,7 +102,7 @@ export const PaymentService = {
                      if (entry) val = entry[1];
                 }
 
-                if (val !== undefined && val !== '') return parseFloat(String(val)) || 0;
+                if (val !== undefined && val !== '') return parseFloat(val) || 0;
             }
 
             return 0;
