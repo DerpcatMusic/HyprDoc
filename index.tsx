@@ -3,7 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ClerkProvider, useAuth } from '@clerk/clerk-react';
 import { ConvexProvider, ConvexReactClient } from "convex/react";
-import './index.css';
+import { AlertTriangle, WifiOff } from 'lucide-react';
 
 // --- Safe Environment Loading ---
 const getEnv = (key: string, viteKey: string, fallback: string): string => {

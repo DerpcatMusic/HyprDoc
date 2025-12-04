@@ -4,49 +4,408 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HyprDoc - Structuralist Builder</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;900&family=JetBrains+Mono:wght@400;500;700;800&family=Dancing+Script:wght@400;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = {
+        darkMode: 'class',
+        theme: {
+          container: {
+            center: true,
+            padding: "0rem",
+            screens: {
+              "2xl": "1400px",
+            },
+          },
+          extend: {
+            fontFamily: {
+              sans: ['Inter', 'sans-serif'],
+              mono: ['JetBrains Mono', 'monospace'],
+              signature: ['Dancing Script', 'cursive'],
+            },
+            colors: {
+              border: "hsl(var(--border))",
+              input: "hsl(var(--input))",
+              ring: "hsl(var(--ring))",
+              background: "hsl(var(--background))",
+              foreground: "hsl(var(--foreground))",
+              primary: {
+                DEFAULT: "hsl(var(--primary))",
+                foreground: "hsl(var(--primary-foreground))",
+              },
+              secondary: {
+                DEFAULT: "hsl(var(--secondary))",
+                foreground: "hsl(var(--secondary-foreground))",
+              },
+              destructive: {
+                DEFAULT: "hsl(var(--destructive))",
+                foreground: "hsl(var(--destructive-foreground))",
+              },
+              muted: {
+                DEFAULT: "hsl(var(--muted))",
+                foreground: "hsl(var(--muted-foreground))",
+              },
+              accent: {
+                DEFAULT: "hsl(var(--accent))",
+                foreground: "hsl(var(--accent-foreground))",
+              },
+              popover: {
+                DEFAULT: "hsl(var(--popover))",
+                foreground: "hsl(var(--popover-foreground))",
+              },
+              card: {
+                DEFAULT: "hsl(var(--card))",
+                foreground: "hsl(var(--card-foreground))",
+              },
+              // Technical Colors
+              'tech-orange': '#FF4D00',
+              'tech-blue': '#0033FF',
+            },
+            borderRadius: {
+              lg: "0px",
+              md: "0px",
+              sm: "0px",
+              DEFAULT: "0px",
+            },
+            boxShadow: {
+              'sharp': '4px 4px 0px 0px rgba(0,0,0,1)',
+              'sharp-sm': '2px 2px 0px 0px rgba(0,0,0,1)',
+              'sharp-hover': '6px 6px 0px 0px rgba(0,0,0,1)',
+              'sharp-dark': '4px 4px 0px 0px rgba(255,255,255,0.2)',
+              'brutal': '8px 8px 0px 0px #000000', 
+            },
+            animation: {
+              'pulse-fast': 'pulse 1s cubic-bezier(0.4, 0, 0.6, 1) infinite',
+            }
+          },
+        },
+      }
+    </script>
+    <style>
+      :root {
+        /* HYPER-STRUCTURALIST THEME */
+        --radius: 0px; 
+        
+        --background: 0 0% 96%; /* Slight concrete grey */
+        --foreground: 0 0% 0%; 
+        
+        --card: 0 0% 100%;
+        --card-foreground: 0 0% 0%;
+        
+        --popover: 0 0% 100%;
+        --popover-foreground: 0 0% 0%;
+        
+        /* Electric Indigo as primary, Safety Orange as functional accent */
+        --primary: 262 80% 50%;
+        --primary-foreground: 0 0% 100%;
+        
+        --secondary: 0 0% 90%;
+        --secondary-foreground: 0 0% 0%;
+        
+        --muted: 0 0% 92%;
+        --muted-foreground: 0 0% 40%;
+        
+        --accent: 262 80% 96%;
+        --accent-foreground: 262 80% 40%;
+        
+        --destructive: 0 100% 50%;
+        --destructive-foreground: 0 0% 100%;
+        
+        --border: 0 0% 0%; 
+        --input: 0 0% 0%;
+        --ring: 262 80% 50%;
+      }
+      
+      .dark {
+        /* SOFTER INDUSTRIAL DARK THEME (Zinc Palette) */
+        --background: 240 5% 10%; /* #18181b */
+        --foreground: 240 5% 90%; /* #e4e4e7 */
+        
+        --card: 240 4% 12%; /* #1f1f22 */
+        --card-foreground: 240 5% 90%;
+        
+        --popover: 240 4% 12%; /* #1f1f22 */
+        --popover-foreground: 240 5% 90%;
+        
+        --primary: 262 80% 70%; /* Lighter Indigo for dark mode */
+        --primary-foreground: 0 0% 0%;
+        
+        --secondary: 240 4% 16%;
+        --secondary-foreground: 240 5% 90%;
+        
+        --muted: 240 4% 16%;
+        --muted-foreground: 240 5% 65%;
+        
+        --accent: 240 4% 16%;
+        --accent-foreground: 240 5% 90%;
+        
+        --destructive: 0 62.8% 30.6%;
+        --destructive-foreground: 0 0% 98%;
+        
+        --border: 240 5% 26%; /* #3f3f46 - softer border */
+        --input: 240 5% 26%;
+        --ring: 262 80% 70%;
+      }
+ 
+      body {
+        background-color: hsl(var(--background));
+        color: hsl(var(--foreground));
+        -webkit-font-smoothing: antialiased;
+      }
+      
+      /* Brutalist Scrollbar */
+      ::-webkit-scrollbar { width: 12px; height: 12px; }
+      ::-webkit-scrollbar-track { background: hsl(var(--muted)); border-left: 2px solid hsl(var(--border)); }
+      ::-webkit-scrollbar-thumb { background: hsl(var(--foreground)); border: 2px solid hsl(var(--muted)); }
+      ::-webkit-scrollbar-thumb:hover { background: hsl(var(--primary)); }
+
+      /* Technical Grid Background */
+      .bg-grid-pattern {
+        background-size: 40px 40px;
+        background-image: 
+          linear-gradient(to right, rgba(0,0,0,0.08) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(0,0,0,0.08) 1px, transparent 1px);
+      }
+      .dark .bg-grid-pattern {
+        background-image: 
+          linear-gradient(to right, rgba(255,255,255,0.05) 1px, transparent 1px),
+          linear-gradient(to bottom, rgba(255,255,255,0.05) 1px, transparent 1px);
+      }
+
+      /* Safety Hazard Fill for Margins (The "Outside" Pattern) */
+      .bg-hatch-pattern {
+        background-color: rgba(255, 77, 0, 0.05); /* Very light orange tint */
+        background-image: repeating-linear-gradient(
+          -45deg,
+          rgba(255, 77, 0, 0.1) 0,
+          rgba(255, 77, 0, 0.1) 1px,
+          transparent 0,
+          transparent 10px
+        );
+      }
+      .dark .bg-hatch-pattern {
+        background-color: rgba(255, 255, 255, 0.02);
+        background-image: repeating-linear-gradient(
+          -45deg,
+          rgba(255, 255, 255, 0.05) 0,
+          rgba(255, 255, 255, 0.05) 1px,
+          transparent 0,
+          transparent 10px
+        );
+      }
+
+      /* Remove default outlines and use sharp focus rings */
+      *:focus-visible {
+        outline: 2px solid hsl(var(--primary));
+        outline-offset: 2px;
+      }
+      
+      /* --- TIPTAP PROSEMIRROR STYLES --- */
+      .ProseMirror {
+        outline: none;
+        min-height: 100%;
+        padding-bottom: 200px;
+      }
+      .ProseMirror p.is-editor-empty:first-child::before {
+        color: #adb5bd;
+        content: attr(data-placeholder);
+        float: left;
+        height: 0;
+        pointer-events: none;
+      }
+      .ProseMirror h1 {
+        font-size: 2.2em;
+        font-weight: 800;
+        margin-top: 0.8em;
+        margin-bottom: 0.4em;
+        line-height: 1.1;
+      }
+      .ProseMirror h2 {
+        font-size: 1.8em;
+        font-weight: 700;
+        margin-top: 0.8em;
+        margin-bottom: 0.4em;
+        line-height: 1.1;
+      }
+      .ProseMirror ul, .ProseMirror ol {
+        padding: 0 1rem;
+        margin: 0.5rem 0;
+      }
+      .ProseMirror ul { list-style-type: disc; }
+      .ProseMirror ol { list-style-type: decimal; }
+      .ProseMirror blockquote {
+        border-left: 3px solid rgba(0,0,0,0.1);
+        padding-left: 1rem;
+        font-style: italic;
+      }
+      .dark .ProseMirror blockquote {
+        border-left: 3px solid rgba(255,255,255,0.1);
+      }
+      
+      /* Table Styles */
+      .ProseMirror table {
+        border-collapse: collapse;
+        table-layout: fixed;
+        width: 100%;
+        margin: 0;
+        overflow: hidden;
+      }
+      .ProseMirror td, .ProseMirror th {
+        min-width: 1em;
+        border: 2px solid #ced4da;
+        padding: 3px 5px;
+        vertical-align: top;
+        box-sizing: border-box;
+        position: relative;
+      }
+      .ProseMirror th {
+        font-weight: bold;
+        text-align: left;
+        background-color: #f1f3f5;
+      }
+      .ProseMirror .selectedCell:after {
+        z-index: 2;
+        position: absolute;
+        content: "";
+        left: 0; right: 0; top: 0; bottom: 0;
+        background: rgba(200, 200, 255, 0.4);
+        pointer-events: none;
+      }
+      
+      /* Task List Styles */
+      ul[data-type="taskList"] {
+        list-style: none;
+        padding: 0;
+      }
+      ul[data-type="taskList"] li {
+        display: flex;
+        align-items: center;
+      }
+      ul[data-type="taskList"] li > label {
+        flex: 0 0 auto;
+        margin-right: 0.5rem;
+        user-select: none;
+      }
+      ul[data-type="taskList"] li > div {
+        flex: 1 1 auto;
+      }
+
+      /* Node View Selection Wrapper */
+      .react-renderer {
+         margin: 1rem 0;
+      }
+      .ProseMirror-selectednode .react-renderer {
+        outline: 2px solid hsl(var(--primary));
+        outline-offset: 2px;
+      }
+      
+      /* GLOSSARY TOOLTIP */
+      .glossary-term {
+        position: relative;
+        text-decoration: underline;
+        text-decoration-style: dashed;
+        text-decoration-color: hsl(var(--primary));
+        cursor: help;
+        transition: all 0.2s;
+        border-radius: 2px;
+        padding: 0 2px;
+      }
+      .glossary-term:hover {
+        background-color: hsl(var(--primary));
+        color: white;
+        text-decoration: none;
+      }
+      
+      /* Tooltip Bubble */
+      .glossary-term::after {
+        content: attr(data-tooltip);
+        position: absolute;
+        bottom: 100%;
+        left: 50%;
+        transform: translateX(-50%) translateY(-8px);
+        background: black;
+        color: white;
+        padding: 8px 12px;
+        border-radius: 0px;
+        font-size: 11px;
+        font-weight: 500;
+        white-space: normal;
+        min-width: 200px;
+        max-width: 300px;
+        box-shadow: 4px 4px 0px 0px rgba(0,0,0,0.2);
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.2s, transform 0.2s;
+        z-index: 1000;
+        pointer-events: none;
+        line-height: 1.4;
+      }
+      .glossary-term:hover::after {
+        opacity: 1;
+        visibility: visible;
+        transform: translateX(-50%) translateY(-12px);
+      }
+    </style>
   <script type="importmap">
 {
   "imports": {
-    "react": "https://aistudiocdn.com/react@^19.2.1",
-    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.1/",
-    "@clerk/clerk-react": "https://aistudiocdn.com/@clerk/clerk-react@^5.57.1",
-    "react/": "https://aistudiocdn.com/react@^19.2.1/",
-    "@tiptap/react": "https://aistudiocdn.com/@tiptap/react@^3.12.1",
-    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.555.0",
-    "convex/": "https://aistudiocdn.com/convex@^1.30.0/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.31.0",
-    "@tiptap/starter-kit": "https://aistudiocdn.com/@tiptap/starter-kit@^3.12.1",
-    "@tiptap/extension-placeholder": "https://aistudiocdn.com/@tiptap/extension-placeholder@^3.12.1",
-    "@tiptap/extension-highlight": "https://aistudiocdn.com/@tiptap/extension-highlight@^3.12.1",
-    "@tiptap/extension-text-align": "https://aistudiocdn.com/@tiptap/extension-text-align@^3.12.1",
-    "@tiptap/extension-underline": "https://aistudiocdn.com/@tiptap/extension-underline@^3.12.1",
-    "@tiptap/extension-subscript": "https://aistudiocdn.com/@tiptap/extension-subscript@^3.12.1",
-    "@tiptap/extension-task-list": "https://aistudiocdn.com/@tiptap/extension-task-list@^3.12.1",
-    "@tiptap/extension-superscript": "https://aistudiocdn.com/@tiptap/extension-superscript@^3.12.1",
-    "@tiptap/extension-task-item": "https://aistudiocdn.com/@tiptap/extension-task-item@^3.12.1",
-    "@tiptap/extension-link": "https://aistudiocdn.com/@tiptap/extension-link@^3.12.1",
-    "@tiptap/extension-table": "https://aistudiocdn.com/@tiptap/extension-table@^3.12.1",
-    "@tiptap/extension-table-row": "https://aistudiocdn.com/@tiptap/extension-table-row@^3.12.1",
-    "@tiptap/extension-table-cell": "https://aistudiocdn.com/@tiptap/extension-table-cell@^3.12.1",
-    "@tiptap/extension-table-header": "https://aistudiocdn.com/@tiptap/extension-table-header@^3.12.1",
-    "@tiptap/extension-color": "https://aistudiocdn.com/@tiptap/extension-color@^3.12.1",
-    "@tiptap/extension-text-style": "https://aistudiocdn.com/@tiptap/extension-text-style@^3.12.1",
-    "@tiptap/extension-typography": "https://aistudiocdn.com/@tiptap/extension-typography@^3.12.1",
-    "@tiptap/extension-character-count": "https://aistudiocdn.com/@tiptap/extension-character-count@^3.12.1",
+    "react": "https://aistudiocdn.com/react@^19.2.0",
+    "react/": "https://aistudiocdn.com/react@^19.2.0/",
+    "react-dom": "https://aistudiocdn.com/react-dom@^19.2.0",
+    "react-dom/": "https://aistudiocdn.com/react-dom@^19.2.0/",
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.30.0",
+    "react-markdown": "https://aistudiocdn.com/react-markdown@^10.1.0",
+    "lucide-react": "https://aistudiocdn.com/lucide-react@^0.554.0",
     "clsx": "https://aistudiocdn.com/clsx@^2.1.1",
-    "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^3.4.0",
-    "signature_pad": "https://aistudiocdn.com/signature_pad@^5.1.3",
-    "@tiptap/core": "https://aistudiocdn.com/@tiptap/core@^3.12.1",
-    "pdf-lib": "https://aistudiocdn.com/pdf-lib@^1.17.1",
-    "vite": "https://aistudiocdn.com/vite@^7.2.6",
-    "@vitejs/plugin-react": "https://aistudiocdn.com/@vitejs/plugin-react@^5.1.1"
+    "tailwind-merge": "https://aistudiocdn.com/tailwind-merge@^2.3.0",
+    "pdfjs-dist": "https://esm.sh/pdfjs-dist@3.11.174",
+    "pdf-lib": "https://esm.sh/pdf-lib@1.17.1",
+    "@codemirror/view": "https://aistudiocdn.com/@codemirror/view@^6.38.8",
+    "@codemirror/commands": "https://aistudiocdn.com/@codemirror/commands@^6.10.0",
+    "vue": "https://aistudiocdn.com/vue@^3.5.25",
+    "chart.js/": "https://aistudiocdn.com/chart.js@^4.5.1/",
+    "@codemirror/language": "https://aistudiocdn.com/@codemirror/language@^6.11.3",
+    "rollbar/": "https://aistudiocdn.com/rollbar@^2.26.5/",
+    "@codemirror/lang-html": "https://aistudiocdn.com/@codemirror/lang-html@^6.4.11",
+    "@hotwired/turbo-rails/": "https://aistudiocdn.com/@hotwired/turbo-rails@^8.0.20/",
+    "signature_pad": "https://aistudiocdn.com/signature_pad@^5.1.2",
+    "driver.js": "https://aistudiocdn.com/driver.js@^1.4.0",
+    "driver.js/": "https://aistudiocdn.com/driver.js@^1.4.0/",
+    "@hotwired/turbo": "https://aistudiocdn.com/@hotwired/turbo@^8.0.20",
+    "autocompleter": "https://aistudiocdn.com/autocompleter@^9.3.2",
+    "@github/catalyst/": "https://aistudiocdn.com/@github/catalyst@^1.7.0/",
+    "@specious/htmlflow": "https://aistudiocdn.com/@specious/htmlflow@^1.1.0",
+    "gsap": "https://aistudiocdn.com/gsap@^3.12.5",
+    "gsap/Flip": "https://aistudiocdn.com/gsap@^3.12.5/Flip",
+    "gsap/": "https://aistudiocdn.com/gsap@^3.13.0/",
+    "@clerk/clerk-react": "https://esm.sh/@clerk/clerk-react@5.22.2?external=react,react-dom",
+    "convex/react": "https://esm.sh/convex@1.16.3/react?external=react,react-dom",
+    "@tiptap/core": "https://esm.sh/@tiptap/core@2.2.4",
+    "@tiptap/react": "https://esm.sh/@tiptap/react@2.2.4?external=react,react-dom",
+    "@tiptap/starter-kit": "https://esm.sh/@tiptap/starter-kit@2.2.4?external=react,react-dom",
+    "@tiptap/extension-placeholder": "https://esm.sh/@tiptap/extension-placeholder@2.2.4?external=react,react-dom",
+    "@tiptap/extension-highlight": "https://esm.sh/@tiptap/extension-highlight@2.2.4?external=react,react-dom",
+    "@tiptap/extension-text-align": "https://esm.sh/@tiptap/extension-text-align@2.2.4?external=react,react-dom",
+    "@tiptap/extension-underline": "https://esm.sh/@tiptap/extension-underline@2.2.4?external=react,react-dom",
+    "@tiptap/extension-subscript": "https://esm.sh/@tiptap/extension-subscript@2.2.4?external=react,react-dom",
+    "@tiptap/extension-superscript": "https://esm.sh/@tiptap/extension-superscript@2.2.4?external=react,react-dom",
+    "@tiptap/extension-task-list": "https://esm.sh/@tiptap/extension-task-list@2.2.4?external=react,react-dom",
+    "@tiptap/extension-task-item": "https://esm.sh/@tiptap/extension-task-item@2.2.4?external=react,react-dom",
+    "@tiptap/extension-link": "https://esm.sh/@tiptap/extension-link@2.2.4?external=react,react-dom",
+    "@tiptap/extension-table": "https://esm.sh/@tiptap/extension-table@2.2.4?external=react,react-dom",
+    "@tiptap/extension-table-row": "https://esm.sh/@tiptap/extension-table-row@2.2.4?external=react,react-dom",
+    "@tiptap/extension-table-cell": "https://esm.sh/@tiptap/extension-table-cell@2.2.4?external=react,react-dom",
+    "@tiptap/extension-table-header": "https://esm.sh/@tiptap/extension-table-header@2.2.4?external=react,react-dom",
+    "@tiptap/extension-color": "https://esm.sh/@tiptap/extension-color@2.2.4?external=react,react-dom",
+    "@tiptap/extension-text-style": "https://esm.sh/@tiptap/extension-text-style@2.2.4?external=react,react-dom",
+    "@tiptap/extension-typography": "https://esm.sh/@tiptap/extension-typography@2.2.4?external=react,react-dom",
+    "@tiptap/extension-character-count": "https://esm.sh/@tiptap/extension-character-count@2.2.4?external=react,react-dom",
+    "convex/": "https://aistudiocdn.com/convex@^1.30.0/"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/index.tsx"></script>
   </body>
 </html>
