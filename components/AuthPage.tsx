@@ -1,3 +1,4 @@
+
 import React from 'react';
 import { SignIn, SignUp } from '@clerk/clerk-react';
 import { Hexagon } from 'lucide-react';
@@ -33,9 +34,13 @@ const clerkAppearance = {
 export const AuthPage: React.FC = () => {
     const [isSignUp, setIsSignUp] = React.useState(false);
 
-    // Fix 404 Error: Explicitly redirect to current page (including hash/path) 
-    // to prevent Clerk from redirecting to a generic root '/' which may fail in proxies/subpaths.
-    const redirectUrl = typeof window !== 'undefined' ? window.location.href : undefined;
+    // ROBUST REDIRECT STRATEGY
+    // We use window.location.origin + pathname to ensure we stay on the correct hosted path (handling proxies/subfolders).
+    // We avoid window.location.href because it might contain hash params (#) which confuse Clerk's redirect.
+    // The hash router in App.tsx will handle the default view (#dashboard) once we land back on the app.
+    const redirectUrl = typeof window !== 'undefined' 
+        ? `${window.location.origin}${window.location.pathname}`
+        : undefined;
 
     return (
         <div className="min-h-screen flex items-center justify-center bg-muted/10 bg-grid-pattern p-4">
@@ -51,13 +56,14 @@ export const AuthPage: React.FC = () => {
                 </div>
 
                 <div className="w-full flex justify-center">
-                    {/* routing="virtual" + forceRedirectUrl ensures the user stays in the app context */}
+                    {/* routing="virtual" ensures Clerk doesn't try to pushState to the browser history, avoiding conflicts with hash routing */}
                     {isSignUp ? (
                         <SignUp 
                             appearance={clerkAppearance} 
                             routing="virtual" 
                             forceRedirectUrl={redirectUrl}
                             fallbackRedirectUrl={redirectUrl}
+                            signInUrl={redirectUrl}
                         />
                     ) : (
                         <SignIn 
@@ -65,6 +71,7 @@ export const AuthPage: React.FC = () => {
                             routing="virtual" 
                             forceRedirectUrl={redirectUrl}
                             fallbackRedirectUrl={redirectUrl}
+                            signUpUrl={redirectUrl}
                         />
                     )}
                 </div>
