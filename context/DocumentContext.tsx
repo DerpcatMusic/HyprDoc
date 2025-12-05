@@ -209,25 +209,76 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({
 
   // Auto-Save Logic (Debounced Sync)
   const isFirstRun = useRef(true);
+  const saveTriggerCount = useRef(0);
+  const isSaving = useRef(false);
+  const lastSavedHash = useRef<string>("");
+  const saveDebounceRef = useRef<NodeJS.Timeout | null>(null);
+
   useEffect(() => {
     if (isFirstRun.current) {
       isFirstRun.current = false;
       return;
     }
-    if (!doc.id) return;
+    if (!doc.id || isSaving.current) return;
 
-    setSaveStatus("saving");
-    const timer = setTimeout(async () => {
+    // Skip auto-save if the document hasn't actually changed
+    const currentHash =
+      doc.sha256 ||
+      JSON.stringify({
+        title: doc.title,
+        blocks: doc.blocks,
+        parties: doc.parties,
+        settings: doc.settings,
+      });
+
+    if (currentHash === lastSavedHash.current) {
+      console.log("⏭️ Skipping auto-save - document unchanged");
+      return;
+    }
+
+    saveTriggerCount.current++;
+    console.log(`🔄 AUTO-SAVE TRIGGERED #${saveTriggerCount.current}:`, {
+      docId: doc.id?.substring(0, 8),
+      saveStatus,
+      hasHashChanged: currentHash !== lastSavedHash.current,
+    });
+
+    // Clear existing debounce timer
+    if (saveDebounceRef.current) {
+      clearTimeout(saveDebounceRef.current);
+    }
+
+    // Debounce save to prevent rapid successive saves
+    saveDebounceRef.current = setTimeout(async () => {
+      if (isSaving.current) return; // Prevent re-entrant calls
+
+      isSaving.current = true;
+      setSaveStatus("saving");
+
       try {
+        console.log(`💾 PERFORMING SAVE #${saveTriggerCount.current}:`, {
+          docId: doc.id?.substring(0, 8),
+          title: doc.title,
+          blockCount: doc.blocks?.length,
+        });
+
         await performSave(doc);
+        lastSavedHash.current = currentHash;
         setSaveStatus("saved");
+        console.log(`✅ SAVE COMPLETED #${saveTriggerCount.current}`);
       } catch (e) {
-        console.error(e);
+        console.error(`❌ SAVE FAILED #${saveTriggerCount.current}:`, e);
         setSaveStatus("error");
+      } finally {
+        isSaving.current = false;
       }
     }, 2000);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (saveDebounceRef.current) {
+        clearTimeout(saveDebounceRef.current);
+      }
+    };
   }, [doc]);
 
   const saveNow = async () => {
@@ -257,19 +308,60 @@ export const DocumentProvider: React.FC<{ children: React.ReactNode }> = ({
   };
 
   // Hashing Logic
+  const hashTriggerCount = useRef(0);
+  const hashDebounceRef = useRef<NodeJS.Timeout | null>(null);
+  const isHashing = useRef(false);
+
   useEffect(() => {
-    let isMounted = true;
-    const calculateHash = async () => {
-      if (!doc.blocks) return;
-      const hash = await hashDocument(doc);
-      if (isMounted && hash !== doc.sha256) {
-        setDoc((prev) => ({ ...prev, sha256: hash }));
+    hashTriggerCount.current++;
+    const currentCount = hashTriggerCount.current;
+
+    console.log(`🔐 HASH CALCULATION TRIGGERED #${currentCount}:`, {
+      docId: doc.id?.substring(0, 8),
+      blockCount: doc.blocks?.length,
+      timestamp: new Date().toISOString(),
+    });
+
+    // Clear existing hash timer
+    if (hashDebounceRef.current) {
+      clearTimeout(hashDebounceRef.current);
+    }
+
+    // Debounce hash calculation
+    hashDebounceRef.current = setTimeout(async () => {
+      if (isHashing.current || !doc.blocks) return;
+
+      isHashing.current = true;
+
+      try {
+        const hash = await hashDocument(doc);
+        console.log(`🔐 HASH CALCULATED #${currentCount}:`, {
+          oldHash: doc.sha256?.substring(0, 8),
+          newHash: hash?.substring(0, 8),
+          willUpdate: hash !== doc.sha256,
+        });
+
+        // Only update if hash is actually different and we're not currently saving
+        if (!isSaving.current && hash !== doc.sha256) {
+          console.log(`🔄 UPDATING DOC WITH NEW HASH #${currentCount}`);
+          setDoc((prev) => ({ ...prev, sha256: hash }));
+        } else {
+          console.log(`⏭️ Skipping hash update #${currentCount}:`, {
+            isSaving: isSaving.current,
+            sameHash: hash === doc.sha256,
+          });
+        }
+      } catch (e) {
+        console.error(`❌ HASH CALCULATION FAILED #${currentCount}:`, e);
+      } finally {
+        isHashing.current = false;
       }
-    };
-    const timer = setTimeout(calculateHash, 500);
+    }, 500);
+
     return () => {
-      isMounted = false;
-      clearTimeout(timer);
+      if (hashDebounceRef.current) {
+        clearTimeout(hashDebounceRef.current);
+      }
     };
   }, [doc.blocks, doc.settings, doc.parties]);
 

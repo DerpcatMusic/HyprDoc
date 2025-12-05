@@ -45,9 +45,9 @@ import {
   Link as LinkIcon,
   Image as ImageIcon,
   CheckSquare,
-  Underline,
-  Subscript,
-  Superscript,
+  Underline as UnderlineIcon,
+  Subscript as SubscriptIcon,
+  Superscript as SuperscriptIcon,
   Type,
   Palette,
 } from "lucide-react";
@@ -56,13 +56,24 @@ import { SettingsView } from "./views/SettingsView";
 import { PartiesList } from "./PartiesList";
 
 // Tiptap Imports
-import { useEditor, EditorContent, Extension } from "@tiptap/react";
+import {
+  useEditor,
+  EditorContent,
+  Extension,
+  useEditorState,
+} from "@tiptap/react";
+import { BubbleMenu } from "@tiptap/react/menus";
 import StarterKit from "@tiptap/starter-kit";
 import Placeholder from "@tiptap/extension-placeholder";
 import Highlight from "@tiptap/extension-highlight";
 import TextAlign from "@tiptap/extension-text-align";
+import Underline from "@tiptap/extension-underline";
+import Subscript from "@tiptap/extension-subscript";
+import Superscript from "@tiptap/extension-superscript";
+import Link from "@tiptap/extension-link";
+import TaskList from "@tiptap/extension-task-list";
+import TaskItem from "@tiptap/extension-task-item";
 import { CharacterCount } from "@tiptap/extensions";
-// Note: StarterKit v3 now includes Underline, Link, TaskList, TaskItem, Subscript, Superscript by default
 import {
   Table,
   TableRow,
@@ -74,6 +85,8 @@ import { TextStyle } from "@tiptap/extension-text-style";
 import Typography from "@tiptap/extension-typography";
 
 import { BlockNodeExtension } from "./tiptap/BlockNode";
+import EditorToolbarEnhanced from "./EditorToolbarEnhanced";
+import SmartSelectAllExtension from "./SmartSelectAllExtension";
 
 interface EditorCanvasProps {
   docTitle: string;
@@ -93,299 +106,6 @@ interface EditorCanvasProps {
   onUpdateParty: (index: number, p: Party) => void;
   onUpdateVariables: (vars: Variable[]) => void;
 }
-
-// Custom Keymap for Smart Ctrl+A
-const SmartSelectAll = Extension.create({
-  name: "smartSelectAll",
-  addKeyboardShortcuts() {
-    return {
-      "Mod-a": ({ editor }) => {
-        const { state } = editor;
-        const { selection, doc } = state;
-        const { from, to } = selection;
-
-        // If entire doc selected, let default handle it (which effectively does nothing or re-selects)
-        if (from === 0 && to === doc.content.size) return false;
-
-        // Check current node
-        const $from = selection.$from;
-        const parent = $from.parent;
-        const parentStart = $from.start(1) - 1; // Adjust for node wrapping
-        const parentEnd = $from.end(1) + 1;
-
-        // Check if current selection covers the whole parent node content
-        // Simplified: If selection size matches parent content size
-        const parentContentSize = parent.content.size;
-        const selectionSize = to - from;
-
-        if (selectionSize === parentContentSize && selectionSize > 0) {
-          // If already selected current node, allow bubble up to Select All
-          return false;
-        }
-
-        // Select current node text
-        // We use commands.setTextSelection to limit scope
-        editor.commands.selectParentNode();
-        return true;
-      },
-    };
-  },
-});
-
-const EditorToolbar = ({ editor }: { editor: any }) => {
-  const [showHeadingPopover, setShowHeadingPopover] = useState(false);
-  const [showMarkerPopover, setShowMarkerPopover] = useState(false);
-
-  if (!editor) return null;
-
-  const setHighlightColor = (color: string) => {
-    // We use setHighlight instead of toggleHighlight to ensure the color is applied even if we switch from another color
-    editor.chain().focus().setHighlight({ color }).run();
-    setShowMarkerPopover(false);
-  };
-
-  return (
-    <div className="w-full h-10 border-b-2 border-black dark:border-white bg-white dark:bg-black flex items-center px-2 gap-1 overflow-x-auto whitespace-nowrap z-20 sticky top-0 shadow-sm">
-      {/* History */}
-      <div className="flex items-center gap-0.5 border-r border-black/10 dark:border-white/10 pr-1 mr-1">
-        <Toggle
-          onClick={() => editor.chain().focus().undo().run()}
-          disabled={!editor.can().undo()}
-          className="w-7 h-7"
-        >
-          <RotateCcw size={14} />
-        </Toggle>
-        <Toggle
-          onClick={() => editor.chain().focus().redo().run()}
-          disabled={!editor.can().redo()}
-          className="w-7 h-7"
-        >
-          <RotateCw size={14} />
-        </Toggle>
-      </div>
-
-      {/* Text Styles */}
-      <div className="flex items-center gap-0.5 border-r border-black/10 dark:border-white/10 pr-1 mr-1">
-        <Popover
-          open={showHeadingPopover}
-          onOpenChange={setShowHeadingPopover}
-          trigger={
-            <Toggle className="w-max px-2 gap-1 h-7">
-              {editor.isActive("heading", { level: 1 })
-                ? "Heading 1"
-                : editor.isActive("heading", { level: 2 })
-                  ? "Heading 2"
-                  : "Paragraph"}
-              <ChevronDown size={10} />
-            </Toggle>
-          }
-          content={
-            <div className="flex flex-col gap-1 p-1 min-w-[120px]">
-              <button
-                onClick={() => {
-                  editor.chain().focus().setParagraph().run();
-                  setShowHeadingPopover(false);
-                }}
-                className="text-left px-2 py-1 hover:bg-muted text-xs"
-              >
-                Paragraph
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().toggleHeading({ level: 1 }).run();
-                  setShowHeadingPopover(false);
-                }}
-                className="text-left px-2 py-1 hover:bg-muted text-xs font-bold text-xl"
-              >
-                Heading 1
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().toggleHeading({ level: 2 }).run();
-                  setShowHeadingPopover(false);
-                }}
-                className="text-left px-2 py-1 hover:bg-muted text-xs font-bold text-lg"
-              >
-                Heading 2
-              </button>
-              <button
-                onClick={() => {
-                  editor.chain().focus().toggleHeading({ level: 3 }).run();
-                  setShowHeadingPopover(false);
-                }}
-                className="text-left px-2 py-1 hover:bg-muted text-xs font-bold text-base"
-              >
-                Heading 3
-              </button>
-            </div>
-          }
-        />
-      </div>
-
-      {/* Basic Formatting */}
-      <div className="flex items-center gap-0.5 border-r border-black/10 dark:border-white/10 pr-1 mr-1">
-        <Toggle
-          pressed={editor.isActive("bold")}
-          onClick={() => editor.chain().focus().toggleBold().run()}
-          className="w-7 h-7"
-        >
-          <Bold size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive("italic")}
-          onClick={() => editor.chain().focus().toggleItalic().run()}
-          className="w-7 h-7"
-        >
-          <Italic size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive("underline")}
-          onClick={() => editor.chain().focus().toggleUnderline().run()}
-          className="w-7 h-7"
-        >
-          <Underline size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive("strike")}
-          onClick={() => editor.chain().focus().toggleStrike().run()}
-          className="w-7 h-7"
-        >
-          <Strikethrough size={14} />
-        </Toggle>
-
-        {/* Marker / Highlight with Color Picker */}
-        <Popover
-          open={showMarkerPopover}
-          onOpenChange={setShowMarkerPopover}
-          trigger={
-            <Toggle
-              pressed={editor.isActive("highlight")}
-              className="w-7 h-7 relative group"
-            >
-              <Highlighter size={14} />
-              <div className="absolute bottom-1 right-1 w-1.5 h-1.5 rounded-full bg-yellow-400 border border-black/20" />
-            </Toggle>
-          }
-          content={
-            <div className="p-2 grid grid-cols-5 gap-1 w-40">
-              {[
-                "#fef08a",
-                "#bbf7d0",
-                "#bfdbfe",
-                "#fbcfe8",
-                "#ddd6fe",
-                "#000000",
-                "#ef4444",
-                "#f97316",
-                "#84cc16",
-                "#06b6d4",
-              ].map((color) => (
-                <button
-                  key={color}
-                  onClick={() => setHighlightColor(color)}
-                  className="w-6 h-6 rounded-sm border border-black/10 hover:scale-110 transition-transform shadow-sm"
-                  style={{ backgroundColor: color }}
-                  title={color}
-                />
-              ))}
-              <button
-                onClick={() => {
-                  editor.chain().focus().unsetHighlight().run();
-                  setShowMarkerPopover(false);
-                }}
-                className="col-span-5 text-[9px] text-center border mt-1 hover:bg-red-50 text-red-600"
-              >
-                Clear
-              </button>
-            </div>
-          }
-        />
-      </div>
-
-      {/* Alignment */}
-      <div className="flex items-center gap-0.5 border-r border-black/10 dark:border-white/10 pr-1 mr-1">
-        <Toggle
-          pressed={editor.isActive({ textAlign: "left" })}
-          onClick={() => editor.chain().focus().setTextAlign("left").run()}
-          className="w-7 h-7"
-        >
-          <AlignLeft size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive({ textAlign: "center" })}
-          onClick={() => editor.chain().focus().setTextAlign("center").run()}
-          className="w-7 h-7"
-        >
-          <AlignCenter size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive({ textAlign: "right" })}
-          onClick={() => editor.chain().focus().setTextAlign("right").run()}
-          className="w-7 h-7"
-        >
-          <AlignRight size={14} />
-        </Toggle>
-      </div>
-
-      {/* Lists & Indent */}
-      <div className="flex items-center gap-0.5 border-r border-black/10 dark:border-white/10 pr-1 mr-1">
-        <Toggle
-          pressed={editor.isActive("bulletList")}
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
-          className="w-7 h-7"
-        >
-          <List size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive("taskList")}
-          onClick={() => editor.chain().focus().toggleTaskList().run()}
-          className="w-7 h-7"
-        >
-          <CheckSquare size={14} />
-        </Toggle>
-        <Toggle
-          pressed={editor.isActive("blockquote")}
-          onClick={() => editor.chain().focus().toggleBlockquote().run()}
-          className="w-7 h-7"
-        >
-          <Quote size={14} />
-        </Toggle>
-      </div>
-
-      {/* Insert */}
-      <div className="flex items-center gap-0.5">
-        <Toggle
-          onClick={() => {
-            const url = window.prompt("URL");
-            if (url) editor.chain().focus().setLink({ href: url }).run();
-          }}
-          pressed={editor.isActive("link")}
-          className="w-7 h-7"
-        >
-          <LinkIcon size={14} />
-        </Toggle>
-
-        <Toggle
-          onClick={() =>
-            editor
-              .chain()
-              .focus()
-              .insertTable({ rows: 3, cols: 3, withHeaderRow: true })
-              .run()
-          }
-          className="w-7 h-7"
-        >
-          <Grid size={14} />
-        </Toggle>
-      </div>
-
-      {/* Stats */}
-      <div className="ml-auto flex items-center px-2 text-[9px] font-mono text-muted-foreground border-l border-black/10 pl-2">
-        {editor.storage.characterCount.words()} words
-      </div>
-    </div>
-  );
-};
 
 export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   docTitle,
@@ -523,22 +243,34 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         heading: { levels: [1, 2, 3] },
         bulletList: { keepMarks: true, keepAttributes: false },
         orderedList: { keepMarks: true, keepAttributes: false },
+        // @ts-ignore - Prevent duplicate extension error if StarterKit includes these
+        link: false,
+        // @ts-ignore
+        underline: false,
       }),
       Placeholder.configure({ placeholder: "Type '/' for commands..." }),
-      Highlight.configure({ multicolor: true }), // Enable multicolor support
+      Highlight.configure({ multicolor: true }),
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Underline,
+      Subscript,
+      Superscript,
+      Link.configure({ openOnClick: false }),
+      TaskList,
+      TaskItem.configure({ nested: true }),
       Table.configure({ resizable: true }),
       TableRow,
       TableHeader,
       TableCell,
       TextStyle,
       Color,
-      Typography, // Enhanced Typography
-      CharacterCount, // Stats
+      Typography,
+      CharacterCount,
       BlockNodeExtension,
-      SmartSelectAll, // Custom Ctrl+A Logic
+      SmartSelectAllExtension,
     ],
     content: initialContent,
+    immediatelyRender: true,
+    shouldRerenderOnTransaction: false, // Critical performance optimization
     editorProps: {
       attributes: {
         class:
@@ -690,10 +422,24 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
   }, [blocks, editor, selectedBlockId]);
 
   // SYNC CONTENT HTML & BLOCKS BACK TO CONTEXT
+  const syncTriggerCount = useRef(0);
   useEffect(() => {
     if (!editor) return;
+
+    syncTriggerCount.current++;
+    const currentCount = syncTriggerCount.current;
+
+    console.log(`🔄 CONTENT SYNC TRIGGERED #${currentCount}:`, {
+      htmlLength: editor.getHTML().length,
+      timestamp: new Date().toISOString(),
+    });
+
     const syncContent = () => {
       const html = editor.getHTML();
+      console.log(`📝 SYNCING CONTENT #${currentCount}:`, {
+        htmlLength: html.length,
+        hasBlocks: html.includes("hypr-block"),
+      });
 
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, "text/html");
@@ -707,6 +453,11 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             newBlocksRegistry.push(block);
           } catch (e) {}
         }
+      });
+
+      console.log(`🔄 UPDATING DOC STATE #${currentCount}:`, {
+        blockCount: newBlocksRegistry.length,
+        hasNewBlocks: newBlocksRegistry.length > 0,
       });
 
       setDoc((prev) => ({
@@ -867,7 +618,7 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
         onClick={() => editor?.chain().focus().run()}
       >
         {/* FIXED TOOLBAR */}
-        <EditorToolbar editor={editor} />
+        <EditorToolbarEnhanced editor={editor} />
 
         <div className="flex-1 overflow-y-auto p-8 pb-32">
           <div
@@ -886,6 +637,104 @@ export const EditorCanvas: React.FC<EditorCanvasProps> = ({
             )}
 
             <EditorContent editor={editor} />
+
+            {/* BubbleMenu for text selection formatting */}
+            {editor && (
+              <BubbleMenu editor={editor}>
+                <div className="flex items-center gap-0.5 bg-black dark:bg-white text-white dark:text-black p-1 rounded shadow-lg border border-black/20">
+                  <button
+                    onClick={() => editor.chain().focus().toggleBold().run()}
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("bold") && "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Bold (Ctrl+B)"
+                  >
+                    <Bold size={14} />
+                  </button>
+                  <button
+                    onClick={() => editor.chain().focus().toggleItalic().run()}
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("italic") &&
+                        "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Italic (Ctrl+I)"
+                  >
+                    <Italic size={14} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      editor.chain().focus().toggleUnderline().run()
+                    }
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("underline") &&
+                        "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Underline (Ctrl+U)"
+                  >
+                    <UnderlineIcon size={14} />
+                  </button>
+                  <button
+                    onClick={() => editor.chain().focus().toggleStrike().run()}
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("strike") &&
+                        "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Strikethrough"
+                  >
+                    <Strikethrough size={14} />
+                  </button>
+                  <div className="w-px h-4 bg-white/20 dark:bg-black/20 mx-0.5" />
+                  <button
+                    onClick={() =>
+                      editor.chain().focus().toggleSubscript().run()
+                    }
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("subscript") &&
+                        "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Subscript"
+                  >
+                    <SubscriptIcon size={14} />
+                  </button>
+                  <button
+                    onClick={() =>
+                      editor.chain().focus().toggleSuperscript().run()
+                    }
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("superscript") &&
+                        "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Superscript"
+                  >
+                    <SuperscriptIcon size={14} />
+                  </button>
+                  <div className="w-px h-4 bg-white/20 dark:bg-black/20 mx-0.5" />
+                  <button
+                    onClick={() =>
+                      editor
+                        .chain()
+                        .focus()
+                        .toggleHighlight({ color: "#fef08a" })
+                        .run()
+                    }
+                    className={cn(
+                      "p-1.5 rounded hover:bg-white/20 dark:hover:bg-black/20 transition-colors",
+                      editor.isActive("highlight") &&
+                        "bg-white/30 dark:bg-black/30"
+                    )}
+                    title="Highlight"
+                  >
+                    <Highlighter size={14} />
+                  </button>
+                </div>
+              </BubbleMenu>
+            )}
 
             {/* Slash Menu Portal */}
             <SlashMenu
